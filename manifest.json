@@ -3,6 +3,14 @@
     "guid": "c99c31b2-247e-4280-85a2-824757735f02",
     "versions": [
       {
+        "version": "0.1.2.0",
+        "changelog": "Playlist cards use the art behind the playlists' contents (artist backdrops, album covers, series, movies) instead of Jellyfin's mosaic images. New setting: crop square and portrait art (album, book and audiobook covers) to fill its tile, off by default.",
+        "targetAbi": "12.2.0.0",
+        "sourceUrl": "https://github.com/erstenor/jellyfin-plugin-title-cards/releases/download/v0.1.2.0/title-cards_0.1.2.0.zip",
+        "checksum": "c1c0d8b17ad799f03f25730e447d9f5b",
+        "timestamp": "2026-10-11T23:55:46Z"
+      },
+      {
         "version": "0.1.1.0",
         "changelog": "Title characters the server's font lacks (e.g. Japanese) are drawn in another installed font that has them; characters no font has are logged.",
         "targetAbi": "12.2.0.0",
