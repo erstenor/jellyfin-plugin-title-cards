@@ -102,6 +102,8 @@ Dashboard > Plugins > Title Cards:
 - **Leave sports out of Live TV cards** (on)
 - **Build cards as soon as home settings or libraries change** (on)
 
+![Title Cards settings page with the three options enabled](docs/images/settings.png)
+
 Schedules are changed under Scheduled Tasks like any other task.
 
 ## Platform support
