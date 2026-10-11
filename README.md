@@ -27,7 +27,7 @@ outer corners, clear of it:
 
 This release runs on a single test server that only contains video libraries (i.e. movies, TV shows and Live TV). To test other library types, cards were rendered with the plugin's recipe from real, openly licensed artwork
 (public-domain record labels, LibriVox and Standard Ebooks covers, NASA photographs; credits
-below):
+below). Testing on live servers is welcome.
 
 ![Example cards for Music, Audiobooks, Books and Photos libraries](docs/images/examples.jpg)
 
