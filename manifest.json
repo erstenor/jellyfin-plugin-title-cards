@@ -1,0 +1,21 @@
+[
+  {
+    "guid": "c99c31b2-247e-4280-85a2-824757735f02",
+    "versions": [
+      {
+        "version": "0.1.0.0",
+        "changelog": "First public release: collage title cards for every home-screen library, Live TV and recordings, grouped views; text filter on Linux x64/ARM64.",
+        "targetAbi": "12.2.0.0",
+        "sourceUrl": "https://github.com/erstenor/jellyfin-plugin-title-cards/releases/download/v0.1.0.0/title-cards_0.1.0.0.zip",
+        "checksum": "2271e0756f432d96f06587bc4ca0ee4d",
+        "timestamp": "2026-10-11T15:26:11Z"
+      }
+    ],
+    "name": "Title Cards",
+    "description": "Builds each home-screen library image as a collage of that library's own artwork, with the library name drawn the way Jellyfin draws it. Covers every library, Live TV, recordings and grouped views, refreshes nightly, and keeps logos and lettering out from behind the title (text detection on Linux x64/ARM64).",
+    "overview": "Collage title cards for every home-screen library",
+    "owner": "erstenor",
+    "category": "General",
+    "imageUrl": "https://raw.githubusercontent.com/erstenor/jellyfin-plugin-title-cards/main/src/Jellyfin.Plugin.TitleCards/logo.png"
+  }
+]

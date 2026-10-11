@@ -1,0 +1,10 @@
+# Build output
+bin/
+obj/
+dist/
+*.user
+.vs/
+# Python
+__pycache__/
+# Detector parity fixtures (third-party artwork, made locally)
+fixtures/

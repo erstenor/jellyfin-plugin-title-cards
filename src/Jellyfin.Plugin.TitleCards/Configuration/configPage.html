@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Title Cards</title>
+</head>
+<body>
+    <div id="TitleCardsConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="TitleCardsConfigForm">
+                    <div class="sectionTitleContainer flex align-items-center">
+                        <h2 class="sectionTitle">Title Cards</h2>
+                    </div>
+                    <p>
+                        Builds each home-screen library image as a collage of that library's own artwork, with the
+                        library name drawn the way Jellyfin draws it. Cards refresh nightly (Scheduled Tasks &gt;
+                        "Refresh title cards"); new views and libraries get a card shortly after they appear.
+                    </p>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="EnableTextFilter" name="EnableTextFilter" type="checkbox" is="emby-checkbox" />
+                            <span>Keep text out from behind the title</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">
+                            Skips artwork with logos or lettering where the title goes. Uses bundled text detection,
+                            available on Linux x64 and ARM64; on other platforms cards are built without this check.
+                        </div>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="ExcludeSports" name="ExcludeSports" type="checkbox" is="emby-checkbox" />
+                            <span>Leave sports out of Live TV cards</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">
+                            Sports listings are usually team-logo graphics that clash with the title.
+                        </div>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="ReactToChanges" name="ReactToChanges" type="checkbox" is="emby-checkbox" />
+                            <span>Build cards as soon as home settings or libraries change</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">
+                            Changing Home &gt; Library Folders creates a new combined view for that user; this gives it a
+                            card within about a minute instead of at the next scheduled check.
+                        </div>
+                    </div>
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <script type="text/javascript">
+            var TitleCardsConfig = {
+                pluginUniqueId: 'c99c31b2-247e-4280-85a2-824757735f02',
+                fields: ['EnableTextFilter', 'ExcludeSports', 'ReactToChanges']
+            };
+
+            document.querySelector('#TitleCardsConfigPage').addEventListener('pageshow', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(TitleCardsConfig.pluginUniqueId).then(function (config) {
+                    TitleCardsConfig.fields.forEach(function (field) {
+                        document.querySelector('#' + field).checked = !!config[field];
+                    });
+                    Dashboard.hideLoadingMsg();
+                });
+            });
+
+            document.querySelector('#TitleCardsConfigForm').addEventListener('submit', function (e) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(TitleCardsConfig.pluginUniqueId).then(function (config) {
+                    TitleCardsConfig.fields.forEach(function (field) {
+                        config[field] = document.querySelector('#' + field).checked;
+                    });
+                    ApiClient.updatePluginConfiguration(TitleCardsConfig.pluginUniqueId, config).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                });
+                e.preventDefault();
+                return false;
+            });
+        </script>
+    </div>
+</body>
+</html>
