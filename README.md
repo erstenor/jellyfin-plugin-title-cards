@@ -25,7 +25,7 @@ outer corners, clear of it:
 
 ![Before and after: Jellyfin's default library images and Title Cards collages](docs/images/before-after.jpg)
 
-Other library types, rendered with the plugin's recipe from real, openly licensed artwork
+This release runs on a single test server that only contains video libraries (i.e. movies, TV shows and Live TV). To test other library types, cards were rendered with the plugin's recipe from real, openly licensed artwork
 (public-domain record labels, LibriVox and Standard Ebooks covers, NASA photographs; credits
 below):
 
