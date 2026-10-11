@@ -14,7 +14,7 @@ welcome.
 
 ## Screenshots
 
-Cards for Live TV, TV shows, movies, collections, recordings (DVR) and a grouped "TV Shows" view:
+Cards for Live TV, shows, movies, collections, recordings (DVR) and a grouped "TV Shows" view:
 
 ![Title cards for Live TV, Shows, Movies, Collections, DVR and a grouped TV Shows view](docs/images/gallery.jpg)
 
