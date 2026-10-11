@@ -38,6 +38,17 @@
                     </div>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label class="emby-checkbox-label">
+                            <input id="CropToFill" name="CropToFill" type="checkbox" is="emby-checkbox" />
+                            <span>Crop square and portrait art to fill its tile</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">
+                            Album, book and audiobook covers fill their tile edge to edge, losing their top and bottom.
+                            When off, each cover is shown whole on a blurred copy of itself. Applies from the next
+                            refresh; run "Refresh title cards" to redraw existing cards now.
+                        </div>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
                             <input id="ReactToChanges" name="ReactToChanges" type="checkbox" is="emby-checkbox" />
                             <span>Build cards as soon as home settings or libraries change</span>
                         </label>
@@ -57,7 +68,7 @@
         <script type="text/javascript">
             var TitleCardsConfig = {
                 pluginUniqueId: 'c99c31b2-247e-4280-85a2-824757735f02',
-                fields: ['EnableTextFilter', 'ExcludeSports', 'ReactToChanges']
+                fields: ['EnableTextFilter', 'ExcludeSports', 'CropToFill', 'ReactToChanges']
             };
 
             document.querySelector('#TitleCardsConfigPage').addEventListener('pageshow', function () {

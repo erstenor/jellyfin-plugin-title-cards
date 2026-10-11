@@ -85,7 +85,7 @@ public sealed class TitleCardService : IDisposable
                 var (view, user) = views[index];
                 try
                 {
-                    await BuildCardAsync(view, user, detector, config.ExcludeSports, cancellationToken).ConfigureAwait(false);
+                    await BuildCardAsync(view, user, detector, config.ExcludeSports, config.CropToFill, cancellationToken).ConfigureAwait(false);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -133,7 +133,7 @@ public sealed class TitleCardService : IDisposable
         return [.. views.Values];
     }
 
-    private async Task BuildCardAsync(Folder view, User user, TextDetector? detector, bool excludeSports, CancellationToken cancellationToken)
+    private async Task BuildCardAsync(Folder view, User user, TextDetector? detector, bool excludeSports, bool cropToFill, CancellationToken cancellationToken)
     {
         var title = view.Name;
         var missing = CardRenderer.MissingCharacters(title);
@@ -143,7 +143,7 @@ public sealed class TitleCardService : IDisposable
         }
 
         var candidates = _candidates.ForView(view, user, excludeSports);
-        using var images = new CardImages(_httpClientFactory, detector, _logger);
+        using var images = new CardImages(_httpClientFactory, detector, _logger, cropToFill);
         var tiles = TilePicker.Pick(candidates, CardRenderer.TitleBand(title), images.TextBoxes);
         if (tiles.Count == 0)
         {

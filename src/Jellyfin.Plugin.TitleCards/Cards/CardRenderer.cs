@@ -38,13 +38,15 @@ public static class CardRenderer
     private static readonly ConcurrentDictionary<int, SKTypeface?> Fallbacks = new();
 
     /// <summary>
-    /// Fits an image into a tile: cropped to fill when the shapes are close, otherwise shown whole
-    /// over a blurred, darkened copy of itself (square album art, portrait covers).
+    /// Fits an image into a tile: cropped to fill when the shapes are close (or always, with
+    /// <paramref name="cropToFill"/>), otherwise shown whole over a blurred, darkened copy of
+    /// itself (square album art, portrait covers).
     /// </summary>
     /// <param name="image">The source image.</param>
     /// <param name="size">The tile size.</param>
+    /// <param name="cropToFill">Crop every image to fill the tile, whatever its shape.</param>
     /// <returns>A new bitmap of exactly the tile size.</returns>
-    public static SKBitmap FitTile(SKBitmap image, (int Width, int Height) size)
+    public static SKBitmap FitTile(SKBitmap image, (int Width, int Height) size, bool cropToFill = false)
     {
         var tile = new SKBitmap(size.Width, size.Height, SKColorType.Rgba8888, SKAlphaType.Premul);
         using var canvas = new SKCanvas(tile);
@@ -53,7 +55,7 @@ public static class CardRenderer
         using var sampling = new SKPaint { IsAntialias = true };
         var options = new SKSamplingOptions(SKCubicResampler.Mitchell);
 
-        if (shapeRatio >= 1 / MaxCropRatio && shapeRatio <= MaxCropRatio)
+        if (cropToFill || (shapeRatio >= 1 / MaxCropRatio && shapeRatio <= MaxCropRatio))
         {
             DrawCropped(canvas, image, target, options);
             return tile;

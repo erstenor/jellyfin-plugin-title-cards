@@ -19,6 +19,16 @@ public class RendererTests
     }
 
     [Fact]
+    public void SquareArtFillsTheTileWhenCropping()
+    {
+        using var square = new SKBitmap(1000, 1000);
+        square.Erase(SKColors.White);
+        using var tile = CardRenderer.FitTile(square, (480, 270), cropToFill: true);
+        Assert.Equal(SKColors.White, tile.GetPixel(5, 135));
+        Assert.Equal(SKColors.White, tile.GetPixel(474, 135));
+    }
+
+    [Fact]
     public void LandscapeArtIsCroppedToFill()
     {
         using var wide = new SKBitmap(1920, 1080);

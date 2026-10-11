@@ -4,6 +4,7 @@ using MediaBrowser.Common.Configuration;
 using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Controller.Configuration;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.Audio;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.LiveTv;
@@ -39,7 +40,6 @@ public sealed class CandidateSource
         ["homevideos"] = [BaseItemKind.Video, BaseItemKind.Photo],
         ["photos"] = [BaseItemKind.Photo, BaseItemKind.Video],
         ["books"] = [BaseItemKind.Book, BaseItemKind.AudioBook],
-        ["playlists"] = [BaseItemKind.Playlist],
         ["trailers"] = [BaseItemKind.Trailer],
     };
 
@@ -101,6 +101,11 @@ public sealed class CandidateSource
         if (type == "boxsets")
         {
             return Collections(view, user);
+        }
+
+        if (type == "playlists")
+        {
+            return Playlists(view, user);
         }
 
         if (IsRecordingLibrary(view))
@@ -239,6 +244,70 @@ public sealed class CandidateSource
             }
         }
 
+        return Interleave(groups);
+    }
+
+    private List<CardCandidate> Playlists(Folder view, User user)
+    {
+        // A playlist's own image is a mosaic of album covers that Jellyfin makes, which looks
+        // busy in a collage tile. Use the art behind its contents instead: artists' backdrops,
+        // album covers, series and films. A playlist with none of these uses its own image.
+        var groups = new List<List<CardCandidate>>();
+        foreach (var playlist in Sample(view, user, [BaseItemKind.Playlist]).OfType<Folder>())
+        {
+            var members = playlist.GetLinkedChildren().Where(member => member.IsVisible(user)).ToList();
+            Random.Shared.Shuffle(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(members));
+            var art = members.Take(200).SelectMany(ArtFor).DistinctBy(item => item.Id).ToList();
+            var group = ImageCandidates(art);
+            if (group.Count == 0)
+            {
+                group = ImageCandidates([playlist]);
+            }
+
+            if (group.Count > 0)
+            {
+                groups.Add(group);
+            }
+        }
+
+        return Interleave(groups);
+    }
+
+    /// <summary>
+    /// The items whose artwork stands for a playlist entry: a track's artist and album, an
+    /// episode's series, or the item itself.
+    /// </summary>
+    private static IEnumerable<BaseItem> ArtFor(BaseItem member)
+    {
+        switch (member)
+        {
+            case Audio track:
+                var album = track.AlbumEntity;
+                if (album?.MusicArtist is { } artist)
+                {
+                    yield return artist;
+                }
+
+                if (album is not null)
+                {
+                    yield return album;
+                }
+
+                break;
+            case Episode { Series: { } series }:
+                yield return series;
+                break;
+            default:
+                yield return member;
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Takes one candidate from each group in turn, so one large group cannot fill the card.
+    /// </summary>
+    private static List<CardCandidate> Interleave(List<List<CardCandidate>> groups)
+    {
         Random.Shared.Shuffle(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(groups));
         var interleaved = new List<CardCandidate>();
         for (var i = 0; i < groups.Select(group => group.Count).DefaultIfEmpty(0).Max(); i++)

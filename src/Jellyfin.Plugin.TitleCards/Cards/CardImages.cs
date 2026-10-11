@@ -17,6 +17,7 @@ public sealed class CardImages : IDisposable
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly TextDetector? _detector;
     private readonly ILogger _logger;
+    private readonly bool _cropToFill;
     private readonly Dictionary<CardCandidate, SKBitmap?> _sources = [];
     private readonly Dictionary<(CardCandidate, int, int), SKBitmap> _tiles = [];
     private readonly Dictionary<(CardCandidate, int, int), IReadOnlyList<Box>?> _text = [];
@@ -27,11 +28,13 @@ public sealed class CardImages : IDisposable
     /// <param name="httpClientFactory">HTTP client factory, for remote guide images.</param>
     /// <param name="detector">Text detector, or null to skip the text filter.</param>
     /// <param name="logger">Logger.</param>
-    public CardImages(IHttpClientFactory httpClientFactory, TextDetector? detector, ILogger logger)
+    /// <param name="cropToFill">Crop square and portrait art to fill its tile.</param>
+    public CardImages(IHttpClientFactory httpClientFactory, TextDetector? detector, ILogger logger, bool cropToFill = false)
     {
         _httpClientFactory = httpClientFactory;
         _detector = detector is { IsAvailable: true } ? detector : null;
         _logger = logger;
+        _cropToFill = cropToFill;
     }
 
     /// <summary>
@@ -90,7 +93,7 @@ public sealed class CardImages : IDisposable
             return null;
         }
 
-        tile = CardRenderer.FitTile(source, size);
+        tile = CardRenderer.FitTile(source, size, _cropToFill);
         _tiles[key] = tile;
         return tile;
     }

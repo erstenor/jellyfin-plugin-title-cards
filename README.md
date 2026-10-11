@@ -65,9 +65,13 @@ For each view any enabled user sees on the home screen (once each):
 
 1. **Gathers artwork** from a random sample of the library's items. Backdrops and landscape
    images come first; square album art and portrait covers are shown whole on a blurred,
-   darkened copy of themselves. Each library type has its own item types (series, movies,
+   darkened copy of themselves, or cropped to fill the tile if you turn on **Crop square and
+   portrait art to fill its tile**. Each library type has its own item types (series, movies,
    albums, photos, books...); unknown types use a broad default. Collections take one image per
-   collection in turn, and a series only appears once.
+   collection in turn, and a series only appears once. Playlists use the art behind what's in
+   them (a track's artist backdrop and album cover, an episode's series, a movie's own art),
+   one playlist at a time in turn, rather than the mosaic image Jellyfin makes for each playlist;
+   a playlist with none of these falls back to its own image.
 2. **Live TV** uses programs airing now (sports optional; their team-logo graphics clash with
    the title). Its artwork is each program's image from your guide data (the XMLTV `<icon>`
    element, or Schedules Direct's program images). Jellyfin doesn't look guide artwork up
@@ -105,11 +109,16 @@ Dashboard > Plugins > Title Cards:
 
 - **Keep text out from behind the title** (on)
 - **Leave sports out of Live TV cards** (on)
+- **Crop square and portrait art to fill its tile** (off). Album, book and audiobook covers fill
+  their tiles edge to edge like backdrops do, at the cost of their top and bottom: a square cover
+  keeps the middle 56% of its height, a portrait book cover about 37%. Off, each cover is shown
+  whole on a blurred copy of itself. Applies from the next refresh.
 - **Build cards as soon as home settings or libraries change** (on)
 
-![Title Cards settings page with the three options enabled](docs/images/settings.png)
+![Title Cards settings page](docs/images/settings.png)
 
-Schedules are changed under Scheduled Tasks like any other task.
+Schedules are changed under Scheduled Tasks like any other task. After changing a setting, run
+*Refresh title cards* to redraw existing cards straight away.
 
 ### Fonts
 

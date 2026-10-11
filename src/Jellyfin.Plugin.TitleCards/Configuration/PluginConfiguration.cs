@@ -20,6 +20,12 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool ExcludeSports { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets a value indicating whether square and portrait art (album, book and audiobook
+    /// covers) is cropped to fill its tile, rather than shown whole on a blurred copy of itself.
+    /// </summary>
+    public bool CropToFill { get; set; }
+
+    /// <summary>
     /// Gets or sets a value indicating whether cards are built as soon as a user's home settings
     /// change or a library is added, rather than waiting for the scheduled check.
     /// </summary>
