@@ -3,6 +3,14 @@
     "guid": "c99c31b2-247e-4280-85a2-824757735f02",
     "versions": [
       {
+        "version": "0.1.1.0",
+        "changelog": "Title characters the server's font lacks (e.g. Japanese) are drawn in another installed font that has them; characters no font has are logged.",
+        "targetAbi": "12.2.0.0",
+        "sourceUrl": "https://github.com/erstenor/jellyfin-plugin-title-cards/releases/download/v0.1.1.0/title-cards_0.1.1.0.zip",
+        "checksum": "d4aa1c42cf895bbafbfd6cedaa3362ce",
+        "timestamp": "2026-10-11T20:57:16Z"
+      },
+      {
         "version": "0.1.0.0",
         "changelog": "First public release: collage title cards for every home-screen library, Live TV and recordings, grouped views; text filter on Linux x64/ARM64.",
         "targetAbi": "12.2.0.0",
