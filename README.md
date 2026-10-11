@@ -25,11 +25,16 @@ outer corners, clear of it:
 
 ![Before and after: Jellyfin's default library images and Title Cards collages](docs/images/before-after.jpg)
 
-Other library types, rendered with the same recipe from generated example artwork (not real
-releases): square album and audiobook art and portrait book covers are shown whole on a blurred
-fill rather than cropped:
+Other library types, rendered with the plugin's recipe from real, openly licensed artwork
+(public-domain record labels, LibriVox and Standard Ebooks covers, NASA photographs; credits
+below):
 
 ![Example cards for Music, Audiobooks, Books and Photos libraries](docs/images/examples.jpg)
+
+Books and Audiobooks came out with two tiles rather than four, which is the text filter at work:
+most covers print their title in the middle or along the bottom, right where the library name
+crosses a quarter tile, so the plugin uses a layout those covers can fill without lettering behind
+the title. Covers with text clear of the title, such as the record labels above, fill all four.
 
 ## Install
 
@@ -161,6 +166,7 @@ skipping an image. It never let through text that RapidOCR caught.
 | `build/package.py` | Builds the zip and updates `manifest.json` |
 | `build/make_parity_fixtures.py` | Makes fixtures for the detector parity test |
 | `build/make_logo.py` | Draws the logo (abstract tiles, no third-party artwork) |
+| `build/fetch_example_art.py` | Downloads openly licensed artwork for the example cards, with credits |
 | `build/render_examples.py` | Renders the README's example cards and Jellyfin's default no-image card |
 
 ## AI assistance
@@ -174,6 +180,27 @@ a live Jellyfin server, and review of the results were done by the maintainer
 
 Please judge the code on its merits and report anything that looks wrong; issues and pull requests
 are welcome whether or not you use AI tools yourself.
+
+## Image credits
+
+The example cards above use these public-domain and CC0 images:
+
+- **Music:** [The Sounds of Earth (Voyager Golden Record cover)](https://commons.wikimedia.org/wiki/File:The_Sounds_of_Earth_-_GPN-2000-001976.jpg), NASA;
+  record labels [Salam-e Shah (1910)](https://commons.wikimedia.org/wiki/File:Label_of_salam-e_shah_1910.jpg),
+  [Dutch Daly, Wedding March and Carnival](https://commons.wikimedia.org/wiki/File:DutchDalyGandTlabel.jpg) and
+  [Ostrich Walk, Okeh 40822](https://commons.wikimedia.org/wiki/File:Ostrich_Walk_Tram_Bix_Okeh_40822.jpg), via Wikimedia Commons
+- **Audiobooks:** LibriVox covers for [The Crown of Life](https://librivox.org/the-crown-of-life-by-george-gissing/) and
+  [The Roosevelt-Rondon Scientific Expedition and the Telegraph Line Commission](https://librivox.org/the-roosevelt-rondon-scientific-expedition-and-the-telegraph-line-commission-by-candido-mariano-da-silva-rondon/)
+- **Books:** Standard Ebooks covers for [Oberland](https://standardebooks.org/ebooks/dorothy-m-richardson/oberland) and
+  [On the Making of Man](https://standardebooks.org/ebooks/gregory-of-nyssa/on-the-making-of-man/william-moore_henry-austin-wilson)
+  (cover designs CC0, paintings public domain)
+- **Photos:** NASA, [iss066e146457](https://images.nasa.gov/details/iss066e146457),
+  [iss039e009160](https://images.nasa.gov/details/iss039e009160),
+  [Folded Rocks of Northwest Iran](https://images.nasa.gov/details/iss069-e-089946_lrg),
+  [iss052e004998](https://images.nasa.gov/details/iss052e004998)
+
+`build/fetch_example_art.py` downloads the full candidate set with a credit for each image, and
+`build/render_examples.py --sources` renders the cards from it.
 
 ## License
 

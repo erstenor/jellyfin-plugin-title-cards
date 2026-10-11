@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Render README example cards for library types without real artwork to hand.
 
-Generates original abstract artwork (album and audiobook covers, book covers, landscape
-"photos"), then builds cards from it with the same recipe as the plugin: text check behind the
+Uses openly licensed artwork from --sources (see fetch_example_art.py), or generates abstract
+artwork when no sources are given, then builds cards from it with the same recipe as the plugin: text check behind the
 title, largest fillable layout, square/portrait art shown whole on a blurred fill, alpha 0x78
 layer and the title in DejaVu Sans Bold 112px on Jellyfin's baseline rule.
 
@@ -10,12 +10,15 @@ Also draws Jellyfin's default card for a view with no image (used for Live TV in
 before/after image): the dark theme's colour for the name, with the Material icon centred.
 
     pip install pillow rapidocr onnxruntime
-    python build/render_examples.py out/ --icon-font path/to/MaterialIcons-Regular.ttf
+    python build/render_examples.py out/ --sources art/ --icon-font path/to/MaterialIcons-Regular.ttf
+
+With --sources, out/used.json lists the images each card uses, for credits.
 
 The icon font ships with jellyfin-web (material-design-icons-iconfont, Apache-2.0).
 """
 
 import argparse
+import json
 import logging
 import math
 import random
@@ -262,23 +265,36 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("out", type=Path)
     parser.add_argument("--icon-font", required=True)
+    parser.add_argument("--sources", type=Path, help="folder with music/, audiobooks/, books/, photos/ artwork")
     parser.add_argument("--seed", type=int, default=12)
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     rng = random.Random(args.seed)
     ocr = make_ocr()
 
-    libraries = {
-        "Music": [album_cover(rng, i % 6) for i in range(8)],
-        "Audiobooks": [album_cover(rng, (i + 3) % 6) for i in range(8)],
-        "Books": [book_cover(rng) for _ in range(8)],
-        "Photos": [landscape(rng) for _ in range(8)],
-    }
+    if args.sources:
+        libraries, names = {}, {}
+        for title in ("Music", "Audiobooks", "Books", "Photos"):
+            files = sorted((args.sources / title.lower()).glob("*.jpg"))
+            libraries[title] = [Image.open(file).convert("RGB") for file in files]
+            names.update({id(image): file.name for image, file in zip(libraries[title], files)})
+    else:
+        names = {}
+        libraries = {
+            "Music": [album_cover(rng, i % 6) for i in range(8)],
+            "Audiobooks": [album_cover(rng, (i + 3) % 6) for i in range(8)],
+            "Books": [book_cover(rng) for _ in range(8)],
+            "Photos": [landscape(rng) for _ in range(8)],
+        }
+    used = {}
     for title, images in libraries.items():
         rng.shuffle(images)
         tiles = pick(images, title, ocr)
         compose(tiles, title).save(args.out / f"example-{title.lower()}.png")
-        print(f"{title}: {len(tiles)} tiles")
+        used[title.lower()] = [names.get(id(image), "") for image, _ in tiles]
+        print(f"{title}: {len(tiles)} tiles from {len(images)} images")
+    if args.sources:
+        (args.out / "used.json").write_text(json.dumps(used, indent=1))
 
     # Material Icons "live_tv" is U+E639.
     default_card("Live TV", args.icon_font, "").save(args.out / "default-livetv.png")
