@@ -136,6 +136,12 @@ public sealed class TitleCardService : IDisposable
     private async Task BuildCardAsync(Folder view, User user, TextDetector? detector, bool excludeSports, CancellationToken cancellationToken)
     {
         var title = view.Name;
+        var missing = CardRenderer.MissingCharacters(title);
+        if (missing.Count > 0)
+        {
+            _logger.LogWarning("Title Cards: {View}: no installed font has {Characters}; they will show as boxes until a font with them is installed", title, string.Join(" ", missing));
+        }
+
         var candidates = _candidates.ForView(view, user, excludeSports);
         using var images = new CardImages(_httpClientFactory, detector, _logger);
         var tiles = TilePicker.Pick(candidates, CardRenderer.TitleBand(title), images.TextBoxes);

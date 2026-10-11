@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Text;
 using SkiaSharp;
 
 namespace Jellyfin.Plugin.TitleCards.Cards;
@@ -8,7 +10,10 @@ namespace Jellyfin.Plugin.TitleCards.Cards;
 /// <remarks>
 /// Jellyfin's library images are one backdrop under a black layer at alpha 0x78, with the
 /// library name in the bold "sans-serif" face at 112px, centred, its baseline at half height
-/// plus half the x-height, and shrunk to 90% of the width when wider than 95%.
+/// plus half the x-height, and shrunk to 90% of the width when wider than 95%. "sans-serif" is
+/// whatever the system's font configuration maps it to (DejaVu Sans in Jellyfin's Docker images).
+/// Characters that font lacks, such as Japanese with only DejaVu, are drawn in another installed
+/// font that has them, as a browser would.
 /// </remarks>
 public static class CardRenderer
 {
@@ -24,9 +29,13 @@ public static class CardRenderer
     /// </summary>
     public const float MaxCropRatio = 1.25f;
 
-    private static SKTypeface TitleTypeface
-        => SKTypeface.FromFamilyName("sans-serif", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
-           ?? SKTypeface.Default;
+    private static readonly SKFontStyle TitleStyle = new(SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+
+    private static readonly Lazy<SKTypeface> TitleTypeface = new(
+        () => SKTypeface.FromFamilyName("sans-serif", TitleStyle) ?? SKTypeface.Default);
+
+    // Fallback typeface per character, or null when no installed font has it.
+    private static readonly ConcurrentDictionary<int, SKTypeface?> Fallbacks = new();
 
     /// <summary>
     /// Fits an image into a tile: cropped to fill when the shapes are close, otherwise shown whole
@@ -69,21 +78,12 @@ public static class CardRenderer
     }
 
     /// <summary>
-    /// The title's font, shrunk the way Jellyfin shrinks long library names.
+    /// Characters in the title that no installed font can draw; they come out as boxes.
     /// </summary>
     /// <param name="title">The title text.</param>
-    /// <returns>The font to draw it with.</returns>
-    public static SKFont TitleFont(string title)
-    {
-        var font = new SKFont(TitleTypeface, TitleSize) { Edging = SKFontEdging.Antialias, Subpixel = true };
-        var textWidth = font.MeasureText(title);
-        if (textWidth > CardLayout.Width * 0.95f)
-        {
-            font.Size = 0.9f * CardLayout.Width * font.Size / textWidth;
-        }
-
-        return font;
-    }
+    /// <returns>The missing characters, once each.</returns>
+    public static IReadOnlyList<string> MissingCharacters(string title)
+        => [.. SplitRuns(title).Where(run => run.Missing).SelectMany(run => run.Text.EnumerateRunes()).Select(rune => rune.ToString()).Distinct()];
 
     /// <summary>
     /// Where the title's ink sits on the card, grown by the clear-space margin.
@@ -92,10 +92,21 @@ public static class CardRenderer
     /// <returns>The band other text must stay out of.</returns>
     public static Box TitleBand(string title)
     {
-        using var font = TitleFont(title);
-        var advance = font.MeasureText(title, out var bounds);
-        var (x, y) = TitleOrigin(font, advance);
-        return new Box(x + bounds.Left, y + bounds.Top, x + bounds.Right, y + bounds.Bottom).Inflate(CardLayout.TitleMargin);
+        using var layout = new TitleLayout(title);
+        var ink = SKRect.Empty;
+        foreach (var (font, text, x) in layout.Runs)
+        {
+            font.MeasureText(text, out var bounds);
+            if (bounds.IsEmpty)
+            {
+                continue;
+            }
+
+            bounds.Offset(x, layout.Baseline);
+            ink = ink.IsEmpty ? bounds : SKRect.Union(ink, bounds);
+        }
+
+        return new Box(ink.Left, ink.Top, ink.Right, ink.Bottom).Inflate(CardLayout.TitleMargin);
     }
 
     /// <summary>
@@ -119,11 +130,13 @@ public static class CardRenderer
             canvas.DrawRect(0, 0, CardLayout.Width, CardLayout.Height, darken);
         }
 
-        using var font = TitleFont(title);
+        using var layout = new TitleLayout(title);
         using var paint = new SKPaint { Color = SKColors.White, IsAntialias = true, Style = SKPaintStyle.Fill };
-        var advance = font.MeasureText(title);
-        var (x, y) = TitleOrigin(font, advance);
-        canvas.DrawText(title, x, y, SKTextAlign.Left, font, paint);
+        foreach (var (font, text, x) in layout.Runs)
+        {
+            canvas.DrawText(text, x, layout.Baseline, SKTextAlign.Left, font, paint);
+        }
+
         return card;
     }
 
@@ -139,8 +152,50 @@ public static class CardRenderer
         return data.ToArray();
     }
 
-    private static (float X, float Y) TitleOrigin(SKFont font, float advance)
-        => ((CardLayout.Width - advance) / 2, (CardLayout.Height / 2f) + (font.Metrics.XHeight / 2));
+    /// <summary>
+    /// Splits the title into runs drawn with one typeface each: the title font where it has the
+    /// character, otherwise an installed font that does.
+    /// </summary>
+    private static List<(string Text, SKTypeface Typeface, bool Missing)> SplitRuns(string title)
+    {
+        var primary = TitleTypeface.Value;
+        var runs = new List<(string Text, SKTypeface Typeface, bool Missing)>();
+        var text = new StringBuilder();
+        (SKTypeface Typeface, bool Missing)? current = null;
+        foreach (var rune in title.EnumerateRunes())
+        {
+            (SKTypeface Typeface, bool Missing) face;
+            if (primary.ContainsGlyph(rune.Value))
+            {
+                face = (primary, false);
+            }
+            else if (current is { Missing: false } previous && previous.Typeface.ContainsGlyph(rune.Value))
+            {
+                face = previous;
+            }
+            else
+            {
+                var fallback = Fallbacks.GetOrAdd(rune.Value, value => SKFontManager.Default.MatchCharacter("sans-serif", TitleStyle, null, value));
+                face = fallback is not null && fallback.ContainsGlyph(rune.Value) ? (fallback, false) : (primary, true);
+            }
+
+            if (current is { } open && (open.Typeface != face.Typeface || open.Missing != face.Missing))
+            {
+                runs.Add((text.ToString(), open.Typeface, open.Missing));
+                text.Clear();
+            }
+
+            current = face;
+            text.Append(rune.ToString());
+        }
+
+        if (current is { } last)
+        {
+            runs.Add((text.ToString(), last.Typeface, last.Missing));
+        }
+
+        return runs;
+    }
 
     private static void DrawCropped(SKCanvas canvas, SKBitmap image, SKRect target, SKSamplingOptions options)
     {
@@ -161,5 +216,62 @@ public static class CardRenderer
 
         using var skImage = SKImage.FromBitmap(image);
         canvas.DrawImage(skImage, source, target, options);
+    }
+
+    /// <summary>
+    /// The title's runs, sized and placed the way Jellyfin places library names: long names are
+    /// shrunk as a whole, and the baseline comes from the title font's x-height.
+    /// </summary>
+    private sealed class TitleLayout : IDisposable
+    {
+        public TitleLayout(string title)
+        {
+            var runs = SplitRuns(title);
+            var size = TitleSize;
+            var advance = Measure(runs, size);
+            if (advance > CardLayout.Width * 0.95f)
+            {
+                size = 0.9f * CardLayout.Width * size / advance;
+                advance = Measure(runs, size);
+            }
+
+            var x = (CardLayout.Width - advance) / 2;
+            foreach (var (text, typeface, _) in runs)
+            {
+                var font = NewFont(typeface, size);
+                Runs.Add((font, text, x));
+                x += font.MeasureText(text);
+            }
+
+            using var primary = NewFont(TitleTypeface.Value, size);
+            Baseline = (CardLayout.Height / 2f) + (primary.Metrics.XHeight / 2);
+        }
+
+        public List<(SKFont Font, string Text, float X)> Runs { get; } = [];
+
+        public float Baseline { get; }
+
+        public void Dispose()
+        {
+            foreach (var (font, _, _) in Runs)
+            {
+                font.Dispose();
+            }
+        }
+
+        private static SKFont NewFont(SKTypeface typeface, float size)
+            => new(typeface, size) { Edging = SKFontEdging.Antialias, Subpixel = true };
+
+        private static float Measure(List<(string Text, SKTypeface Typeface, bool Missing)> runs, float size)
+        {
+            var total = 0f;
+            foreach (var (text, typeface, _) in runs)
+            {
+                using var font = NewFont(typeface, size);
+                total += font.MeasureText(text);
+            }
+
+            return total;
+        }
     }
 }

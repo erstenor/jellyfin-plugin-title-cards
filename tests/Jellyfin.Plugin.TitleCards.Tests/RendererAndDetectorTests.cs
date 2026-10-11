@@ -48,6 +48,43 @@ public class RendererTests
         var band = CardRenderer.TitleBand("A Very Long Library Name Indeed");
         Assert.True(band.Width - (2 * CardLayout.TitleMargin) <= CardLayout.Width * 0.95f);
     }
+
+    [Fact]
+    public void LatinTitlesNeedNoFallback()
+        => Assert.Empty(CardRenderer.MissingCharacters("Movies & TV"));
+
+    [Fact]
+    public void JapaneseTitlesUseAnInstalledFontThatHasThem()
+    {
+        const string title = "映画 Movies";
+        var missing = CardRenderer.MissingCharacters(title);
+        if (SKFontManager.Default.MatchCharacter('映') is null)
+        {
+            // No Japanese font on this machine: the characters are reported, not silently boxed.
+            Assert.Equal(["映", "画"], missing);
+            return;
+        }
+
+        Assert.Empty(missing);
+        using var black = new SKBitmap(480, 270);
+        black.Erase(SKColors.Black);
+        using var card = CardRenderer.Compose(CardLayout.Layouts[4].Select(box => (black, box)), title);
+        var band = CardRenderer.TitleBand(title);
+        Assert.InRange((band.Left + band.Right) / 2, 460, 500);
+
+        // The Japanese part, left of "Movies", is drawn in white rather than left empty.
+        var latin = CardRenderer.TitleBand("Movies");
+        var lit = 0;
+        for (var x = (int)band.Left; x < band.Left + (band.Width - latin.Width); x++)
+        {
+            for (var y = (int)band.Top; y < band.Bottom; y++)
+            {
+                lit += card.GetPixel(x, y).Red > 200 ? 1 : 0;
+            }
+        }
+
+        Assert.True(lit > 500, $"only {lit} title pixels in the Japanese part");
+    }
 }
 
 public class TextDetectorTests

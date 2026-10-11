@@ -77,7 +77,8 @@ For each view any enabled user sees on the home screen (once each):
 4. **Lays out** the largest arrangement it can fill: 4 tiles, else 3, 2 or 1. If nothing usable
    clears the title, the library keeps its current image.
 5. **Draws** with Jellyfin's own recipe: black layer at alpha 0x78, the library name in the
-   server's bold sans-serif at 112px, centred, baseline at half height plus half the x-height.
+   server's bold sans-serif at 112px, centred, baseline at half height plus half the x-height
+   (see [Fonts](#fonts)).
 6. **Saves** the card as the view's Primary image, the same way an image upload does.
 
 ### When cards are built
@@ -105,6 +106,34 @@ Dashboard > Plugins > Title Cards:
 ![Title Cards settings page with the three options enabled](docs/images/settings.png)
 
 Schedules are changed under Scheduled Tasks like any other task.
+
+### Fonts
+
+No font is bundled. The title uses whichever installed font the system's font configuration
+picks for bold `sans-serif`, the same lookup Jellyfin uses for its own library images, so the
+cards follow the server's fonts. In Jellyfin's Docker images that's DejaVu Sans Bold.
+
+Characters that font doesn't have are drawn in another installed font that does, character by
+character. A Japanese library name such as `映画 Movies` keeps "Movies" in the title font and
+draws 映画 in a Japanese font, if one is installed. Jellyfin's Docker images include no Japanese,
+Chinese or Korean fonts, so those characters come out as boxes until you add one, and the log
+names them:
+
+```
+Title Cards: 映画 Movies: no installed font has 映 画; they will show as boxes until a font with them is installed
+```
+
+Left: only DejaVu installed. Right: with Noto Sans CJK installed.
+
+![A Japanese library title drawn as boxes without a Japanese font, and correctly with one](docs/images/fonts.jpg)
+
+To add fonts in Docker, mount a folder of `.ttf`/`.otf`/`.ttc` files into the container's
+`/usr/local/share/fonts/` (for example `- ./fonts:/usr/local/share/fonts/custom:ro` in Compose)
+and restart Jellyfin. [Noto Sans CJK](https://github.com/notofonts/noto-cjk) covers Japanese,
+Chinese and Korean. Fonts installed inside a running container are lost when it is recreated, so
+mount them rather than installing them there. Outside Docker, install the font with your system's
+package manager (for example `fonts-noto-cjk` on Debian and Ubuntu) and restart Jellyfin. Cards
+made after the restart use it; run *Refresh title cards* to redraw existing cards right away.
 
 ## Platform support
 
@@ -151,7 +180,9 @@ Releasing: `python build/package.py --version X --changelog "..." --manifest` bu
 adds the version to `manifest.json`; attach the zip to a GitHub release tagged `vX` and commit
 the manifest.
 
-Tests cover tile layout and selection, the renderer, and the detector's post-processing.
+Tests cover tile layout and selection, the renderer (including the per-character font fallback;
+its Japanese test checks the drawing when a Japanese font is installed and the missing-character
+report when not), and the detector's post-processing.
 `DetectorParityTests` also compares the plugin's text detection with
 [RapidOCR](https://github.com/RapidAI/RapidOCR) (detection and recognition) on real artwork, when
 `TITLECARDS_FIXTURES` points at fixtures made by `build/make_parity_fixtures.py` from your own
