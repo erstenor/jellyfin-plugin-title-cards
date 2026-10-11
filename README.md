@@ -70,8 +70,13 @@ For each view any enabled user sees on the home screen (once each):
    albums, photos, books...); unknown types use a broad default. Collections take one image per
    collection in turn, and a series only appears once.
 2. **Live TV** uses programs airing now (sports optional; their team-logo graphics clash with
-   the title). Libraries that contain a Live TV recording folder (e.g. DVR) use their recordings
-   first, topped up from what's airing.
+   the title). Its artwork is each program's image from your guide data (the XMLTV `<icon>`
+   element, or Schedules Direct's program images). Jellyfin doesn't look guide artwork up
+   elsewhere, so if your EPG provider supplies no program images, or only portrait or text-heavy
+   ones, there is nothing to build a Live TV card from and it keeps its current image. The log
+   shows `Title Cards: Live TV: no images clear the title (0 candidates); image kept`. Libraries
+   that contain a Live TV recording folder (e.g. DVR) use their recordings first, topped up from
+   what's airing.
 3. **Keeps text clear of the title**: an image is skipped for a tile if text is detected where
    the title covers that tile (with a 24px margin). Text elsewhere in the image is fine.
 4. **Lays out** the largest arrangement it can fill: 4 tiles, else 3, 2 or 1. If nothing usable
