@@ -4,9 +4,8 @@
 
 A Jellyfin plugin that turns every home-screen library image into a collage of that library's
 own artwork, with the library name drawn exactly the way Jellyfin draws it. Every library gets
-one, including Live TV (which Jellyfin doesn't generate an image for), recordings, grouped
-views and libraries added later. Logos and lettering in the artwork are kept out from behind
-the title.
+one, including Live TV (for which Jellyfin doesn't automatically generate an image), recordings, grouped
+views and libraries added later. Images containing logos and lettering in the artwork that would obscure the library title are excluded.
 
 **Status:** 0.1, an early release for Jellyfin 12.2. It runs on one server so far, so
 [feedback and issues](https://github.com/erstenor/jellyfin-plugin-title-cards/issues) are very
