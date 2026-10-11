@@ -18,10 +18,18 @@ Cards for Live TV, TV shows, movies, collections, recordings (DVR) and a grouped
 
 ![Title cards for Live TV, Shows, Movies, Collections, DVR and a grouped TV Shows view](docs/images/gallery.jpg)
 
-Jellyfin's own generated images (top) and Title Cards (bottom). The title uses the same font,
-size and position; logos in guide art stay in the outer corners, clear of it:
+What Jellyfin shows by default (top) and Title Cards (bottom). Jellyfin generates a single-backdrop
+image for most libraries and none for Live TV, which gets a plain coloured card with an icon. The
+plugin's title uses the same font, size and position as Jellyfin's; logos in guide art stay in the
+outer corners, clear of it:
 
-![Before and after: Jellyfin's single-image library cards and Title Cards collages](docs/images/before-after.jpg)
+![Before and after: Jellyfin's default library images and Title Cards collages](docs/images/before-after.jpg)
+
+Other library types, rendered with the same recipe from generated example artwork (not real
+releases): square album and audiobook art and portrait book covers are shown whole on a blurred
+fill rather than cropped:
+
+![Example cards for Music, Audiobooks, Books and Photos libraries](docs/images/examples.jpg)
 
 ## Install
 
@@ -153,6 +161,7 @@ skipping an image. It never let through text that RapidOCR caught.
 | `build/package.py` | Builds the zip and updates `manifest.json` |
 | `build/make_parity_fixtures.py` | Makes fixtures for the detector parity test |
 | `build/make_logo.py` | Draws the logo (abstract tiles, no third-party artwork) |
+| `build/render_examples.py` | Renders the README's example cards and Jellyfin's default no-image card |
 
 ## AI assistance
 
