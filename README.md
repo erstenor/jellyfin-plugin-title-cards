@@ -114,9 +114,9 @@ picks for bold `sans-serif`, the same lookup Jellyfin uses for its own library i
 cards follow the server's fonts. In Jellyfin's Docker images that's DejaVu Sans Bold.
 
 Characters that font doesn't have are drawn in another installed font that does, character by
-character. A Japanese library name such as `映画 Movies` keeps "Movies" in the title font and
+character. For example, a Japanese library name such as `映画 Movies` keeps "Movies" in the title font and
 draws 映画 in a Japanese font, if one is installed. Jellyfin's Docker images include no Japanese,
-Chinese or Korean fonts, so those characters come out as boxes until you add one, and the log
+Chinese or Korean fonts, so those characters come out as boxes until one is added, and the log
 names them:
 
 ```
