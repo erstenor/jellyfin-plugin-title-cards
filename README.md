@@ -19,7 +19,7 @@ Cards for Live TV, shows, movies, collections, recordings (DVR) and a grouped "T
 ![Title cards for Live TV, Shows, Movies, Collections, DVR and a grouped TV Shows view](docs/images/gallery.jpg)
 
 What Jellyfin shows by default (top) and Title Cards (bottom). Jellyfin generates a single-backdrop
-image for most libraries and none for Live TV, which gets a plain coloured card with an icon. The
+image for most libraries and none for Live TV, which gets a plain colored card with an icon. The
 plugin's title uses the same font, size and position as Jellyfin's; logos in guide art stay in the
 outer corners, clear of it:
 
@@ -45,7 +45,7 @@ Requires **Jellyfin 12.2**.
    - Name: `Title Cards`
    - URL: `https://raw.githubusercontent.com/erstenor/jellyfin-plugin-title-cards/main/manifest.json`
 2. Open the **Catalog**, find **Title Cards** and install it.
-3. Restart Jellyfin. On start-up the plugin builds a card for every library; the log shows
+3. Restart Jellyfin. On startup the plugin builds a card for every library; the log shows
    `Title Cards: ... card saved` for each, and `Title Cards: text detection ready` where the text
    filter is available.
 
@@ -66,10 +66,10 @@ For each view any enabled user sees on the home screen (once each):
 
 1. **Gathers artwork** from a random sample of the library's items. Backdrops and landscape
    images come first; square album art and portrait covers are shown whole on a blurred,
-   darkened copy of themselves. Each library type has its own item types (series, films,
+   darkened copy of themselves. Each library type has its own item types (series, movies,
    albums, photos, books...); unknown types use a broad default. Collections take one image per
    collection in turn, and a series only appears once.
-2. **Live TV** uses programmes airing now (sports optional; their team-logo graphics clash with
+2. **Live TV** uses programs airing now (sports optional; their team-logo graphics clash with
    the title). Libraries that contain a Live TV recording folder (e.g. DVR) use their recordings
    first, topped up from what's airing.
 3. **Keeps text clear of the title**: an image is skipped for a tile if text is detected where
@@ -77,7 +77,7 @@ For each view any enabled user sees on the home screen (once each):
 4. **Lays out** the largest arrangement it can fill: 4 tiles, else 3, 2 or 1. If nothing usable
    clears the title, the library keeps its current image.
 5. **Draws** with Jellyfin's own recipe: black layer at alpha 0x78, the library name in the
-   server's bold sans-serif at 112px, centred, baseline at half height plus half the x-height
+   server's bold sans-serif at 112px, centered, baseline at half height plus half the x-height
    (see [Fonts](#fonts)).
 6. **Saves** the card as the view's Primary image, the same way an image upload does.
 
@@ -149,7 +149,7 @@ runtimes are packaged. On other platforms the plugin logs a warning once and bui
 without the check, so a logo can occasionally end up behind a title (mostly on Live TV, whose
 guide art often carries show logos; library backdrops rarely have text).
 
-**Windows and macOS in future.** Supporting them is a packaging change rather than a code change:
+**Windows and macOS in the future.** Supporting them is a packaging change rather than a code change:
 the detector already uses whatever ONNX Runtime library it can load. Options:
 
 1. **One package with every runtime.** Add `win-x64/onnxruntime.dll` (16.5 MB, about 6 MB
@@ -187,7 +187,7 @@ report when not), and the detector's post-processing.
 [RapidOCR](https://github.com/RapidAI/RapidOCR) (detection and recognition) on real artwork, when
 `TITLECARDS_FIXTURES` points at fixtures made by `build/make_parity_fixtures.py` from your own
 server (the artwork isn't committed). On 65 Live TV and library images the plugin agreed on 58
-and was stricter on 7: without RapidOCR's recognition step to drop weak matches, it errs towards
+and was stricter on 7: without RapidOCR's recognition step to drop weak matches, it errs toward
 skipping an image. It never let through text that RapidOCR caught.
 
 | Path | Contents |
