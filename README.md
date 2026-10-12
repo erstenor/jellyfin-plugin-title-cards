@@ -24,16 +24,28 @@ outer corners, clear of it:
 
 ![Before and after: Jellyfin's default library images and Title Cards collages](docs/images/before-after.jpg)
 
-This release runs on a single test server that only contains video libraries (i.e. movies, TV shows and Live TV). To test other library types, cards were rendered with the plugin's recipe from real, openly licensed artwork
-(public-domain record labels, LibriVox and Standard Ebooks covers, NASA photographs; credits
-below). Testing on live servers with those libraries is welcome.
+Every library type on the test server: Live TV, TV shows, movies, collections, audiobooks, books,
+music, music videos and photos. With **Crop square and portrait art to fill its tile** off (the
+default), covers whose shape is far from their tile's are shown whole on a blurred copy of
+themselves, as in the Audiobooks and Books cards:
 
-![Example cards for Music, Audiobooks, Books and Photos libraries](docs/images/examples.jpg)
+![Title cards for every library type, with the crop setting off](docs/images/libraries-crop-off.jpg)
 
-Books and Audiobooks came out with two tiles rather than four, which is the text filter at work:
-most covers print their title in the middle or along the bottom, right where the library name
-crosses a quarter tile, so the plugin uses a layout those covers can fill without lettering behind
-the title. Covers with text clear of the title, such as the record labels above, fill all four.
+With the setting on, covers are cropped to fill their tiles (the artwork differs between the two
+screenshots because each refresh picks a fresh random sample):
+
+![Title cards for every library type, with the crop setting on](docs/images/libraries-crop-on.jpg)
+
+The number of tiles varies with the artwork. Book and audiobook covers usually print their title
+and author at the top or bottom, right where the library name crosses a quarter tile, so the text
+filter often rules them out of the four-tile layout and the plugin falls back to fewer tiles. In
+the two-tile layout the library name crosses the middle of each cover instead, which is usually
+artwork. A tile whose
+shape is close to its cover's (within 1.25×, such as a square cover in a two-tile half) is always
+cropped slightly, whatever the setting.
+
+The audiobook, book, music and photo libraries on the test server hold openly licensed sample
+media; more testing on servers with large libraries of those types is welcome.
 
 ## Install
 
@@ -53,7 +65,12 @@ Requires **Jellyfin 12.2**.
 folder named `Title Cards_<version>` in Jellyfin's `plugins` folder (Docker: `/config/data/plugins/`),
 owned by the user Jellyfin runs as, and restart. Manually installed plugins show "An error
 occurred while getting the plugin details from the repository" in the dashboard until the
-repository above is added; the plugin works either way.
+repository above is added; the plugin works either way. A manually installed copy may also have
+automatic updates turned off, so *Update Plugins* skips it. Once the repository is added, install
+the latest version from the Catalog (and restart) to switch to a normal, auto-updating install.
+
+New versions can take a few minutes to appear in the Catalog after a release, while GitHub's
+cache of the repository file refreshes.
 
 **Uninstall:** remove the plugin from Dashboard > Plugins and restart. The cards stay as each
 library's image until you replace them: delete a library's image under Edit Images and Jellyfin
@@ -214,8 +231,8 @@ skipping an image. It never let through text that RapidOCR caught.
 | `build/package.py` | Builds the zip and updates `manifest.json` |
 | `build/make_parity_fixtures.py` | Makes fixtures for the detector parity test |
 | `build/make_logo.py` | Draws the logo (abstract tiles, no third-party artwork) |
-| `build/fetch_example_art.py` | Downloads openly licensed artwork for the example cards, with credits |
-| `build/render_examples.py` | Renders the README's example cards and Jellyfin's default no-image card |
+| `build/fetch_example_art.py` | Downloads openly licensed artwork for rendering example cards, with credits |
+| `build/render_examples.py` | Renders example cards from that artwork, and Jellyfin's default no-image card (used in the before-and-after image) |
 
 ## AI assistance
 
@@ -231,24 +248,11 @@ are welcome whether or not you use AI tools yourself.
 
 ## Image credits
 
-The example cards above use these public-domain and CC0 images:
-
-- **Music:** [The Sounds of Earth (Voyager Golden Record cover)](https://commons.wikimedia.org/wiki/File:The_Sounds_of_Earth_-_GPN-2000-001976.jpg), NASA;
-  record labels [Salam-e Shah (1910)](https://commons.wikimedia.org/wiki/File:Label_of_salam-e_shah_1910.jpg),
-  [Dutch Daly, Wedding March and Carnival](https://commons.wikimedia.org/wiki/File:DutchDalyGandTlabel.jpg) and
-  [Ostrich Walk, Okeh 40822](https://commons.wikimedia.org/wiki/File:Ostrich_Walk_Tram_Bix_Okeh_40822.jpg), via Wikimedia Commons
-- **Audiobooks:** LibriVox covers for [The Crown of Life](https://librivox.org/the-crown-of-life-by-george-gissing/) and
-  [The Roosevelt-Rondon Scientific Expedition and the Telegraph Line Commission](https://librivox.org/the-roosevelt-rondon-scientific-expedition-and-the-telegraph-line-commission-by-candido-mariano-da-silva-rondon/)
-- **Books:** Standard Ebooks covers for [Oberland](https://standardebooks.org/ebooks/dorothy-m-richardson/oberland) and
-  [On the Making of Man](https://standardebooks.org/ebooks/gregory-of-nyssa/on-the-making-of-man/william-moore_henry-austin-wilson)
-  (cover designs CC0, paintings public domain)
-- **Photos:** NASA, [iss066e146457](https://images.nasa.gov/details/iss066e146457),
-  [iss039e009160](https://images.nasa.gov/details/iss039e009160),
-  [Folded Rocks of Northwest Iran](https://images.nasa.gov/details/iss069-e-089946_lrg),
-  [iss052e004998](https://images.nasa.gov/details/iss052e004998)
-
-`build/fetch_example_art.py` downloads the full candidate set with a credit for each image, and
-`build/render_examples.py --sources` renders the cards from it.
+The audiobook, book, music and photo cards in the screenshots are built from public-domain and
+openly licensed sample media: [LibriVox](https://librivox.org/) recordings and covers,
+[Project Gutenberg](https://www.gutenberg.org/) ebooks, Internet Archive netlabel albums,
+[Wikimedia Commons](https://commons.wikimedia.org/) photographs and
+[Art Institute of Chicago](https://www.artic.edu/open-access) open-access artworks.
 
 ## License
 
