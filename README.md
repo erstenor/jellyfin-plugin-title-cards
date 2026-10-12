@@ -29,12 +29,13 @@ music, music videos, photos and playlists. The Playlists card is built from what
 playlists (here music, music videos, movies and episodes) rather than Jellyfin's playlist mosaics.
 With **Crop square and portrait art to fill its tile** off (the
 default), covers whose shape is far from their tile's are shown whole on a blurred copy of
-themselves, as in the Audiobooks and Books cards:
+themselves, as on the highlighted Books card:
 
 ![Title cards for every library type, with the crop setting off](docs/images/libraries-crop-off.jpg)
 
-With the setting on, covers are cropped to fill their tiles (the artwork differs between the two
-screenshots because each refresh picks a fresh random sample):
+With the setting on, covers are cropped to fill their tiles edge to edge, as on the highlighted
+Books card (the artwork differs between the two screenshots because each refresh picks a fresh
+random sample):
 
 ![Title cards for every library type, with the crop setting on](docs/images/libraries-crop-on.jpg)
 
