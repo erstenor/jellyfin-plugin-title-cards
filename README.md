@@ -25,7 +25,9 @@ outer corners, clear of it:
 ![Before and after: Jellyfin's default library images and Title Cards collages](docs/images/before-after.jpg)
 
 Every library type on the test server: Live TV, TV shows, movies, collections, audiobooks, books,
-music, music videos and photos. With **Crop square and portrait art to fill its tile** off (the
+music, music videos, photos and playlists. The Playlists card is built from what's in the
+playlists (here music, music videos, movies and episodes) rather than Jellyfin's playlist mosaics.
+With **Crop square and portrait art to fill its tile** off (the
 default), covers whose shape is far from their tile's are shown whole on a blurred copy of
 themselves, as in the Audiobooks and Books cards:
 
