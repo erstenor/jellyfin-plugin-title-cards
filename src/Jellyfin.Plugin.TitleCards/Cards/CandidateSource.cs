@@ -117,15 +117,16 @@ public sealed class CandidateSource
         }
 
         var itemTypes = SourceItemTypes.GetValueOrDefault(type, DefaultItemTypes);
-        return UniqueByName(ImageCandidates(Sample(view, user, itemTypes)), shuffle: false);
+        var items = Sample(view, user, itemTypes).Select(BookFor).DistinctBy(item => item.Id);
+        return UniqueByName(ImageCandidates(items), shuffle: false);
     }
 
     /// <summary>
-    /// Removes candidates whose name repeats an earlier one.
+    /// Removes candidates whose name or image repeats an earlier one.
     /// </summary>
     /// <param name="candidates">Candidates.</param>
     /// <param name="shuffle">Shuffle first.</param>
-    /// <returns>One candidate per name.</returns>
+    /// <returns>One candidate per name and image.</returns>
     public static List<CardCandidate> UniqueByName(IEnumerable<CardCandidate> candidates, bool shuffle = true)
     {
         var list = candidates.ToList();
@@ -134,8 +135,44 @@ public sealed class CandidateSource
             Random.Shared.Shuffle(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list));
         }
 
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        return list.Where(candidate => !string.IsNullOrWhiteSpace(candidate.Name) && seen.Add(candidate.Name.Trim())).ToList();
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var images = new HashSet<string>(StringComparer.Ordinal);
+        return list.Where(candidate => !string.IsNullOrWhiteSpace(candidate.Name)
+                && names.Add(candidate.Name.Trim())
+                && images.Add(candidate.ImagePath))
+            .ToList();
+    }
+
+    /// <summary>
+    /// The item whose artwork stands for an audiobook: its book folder when the book is split
+    /// into one item per chapter file (or the item has no image of its own), otherwise the item.
+    /// </summary>
+    /// <param name="item">A sampled item.</param>
+    /// <returns>The item to take artwork from.</returns>
+    private BaseItem BookFor(BaseItem item)
+    {
+        if (item is not AudioBook
+            || item.GetParent() is not Folder book
+            || book is CollectionFolder or UserRootFolder or AggregateFolder
+            || book.GetImageInfo(ImageType.Primary, 0) is null)
+        {
+            return item;
+        }
+
+        if (item.GetImageInfo(ImageType.Primary, 0) is null)
+        {
+            return book;
+        }
+
+        // A folder holding several audiobook items is one book in chapters; a single file is a
+        // book of its own, whose folder is more likely an author's.
+        var siblings = _libraryManager.GetItemList(new InternalItemsQuery
+        {
+            ParentId = book.Id,
+            IncludeItemTypes = [BaseItemKind.AudioBook],
+            Limit = 2,
+        });
+        return siblings.Count > 1 ? book : item;
     }
 
     /// <summary>

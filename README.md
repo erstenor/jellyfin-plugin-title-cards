@@ -71,7 +71,9 @@ For each view any enabled user sees on the home screen (once each):
    collection in turn, and a series only appears once. Playlists use the art behind what's in
    them (a track's artist backdrop and album cover, an episode's series, a movie's own art),
    one playlist at a time in turn, rather than the mosaic image Jellyfin makes for each playlist;
-   a playlist with none of these falls back to its own image.
+   a playlist with none of these falls back to its own image. Audiobooks stored as one file per
+   chapter (which Jellyfin lists as one item per chapter) use their book folder's cover, so each
+   book counts once, whichever chapter is sampled. No image is used twice on a card.
 2. **Live TV** uses programs airing now (sports optional; their team-logo graphics clash with
    the title). Its artwork is each program's image from your guide data (the XMLTV `<icon>`
    element, or Schedules Direct's program images). Jellyfin doesn't look guide artwork up
