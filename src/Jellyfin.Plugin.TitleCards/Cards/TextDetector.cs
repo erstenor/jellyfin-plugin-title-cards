@@ -71,7 +71,7 @@ public sealed class TextDetector : IDisposable
         catch (Exception ex) when (ex is DllNotFoundException or TypeInitializationException or OnnxRuntimeException or InvalidOperationException or BadImageFormatException or EntryPointNotFoundException)
         {
             var reason = $"text detection is not available on {RuntimeInformation.OSDescription} {RuntimeInformation.ProcessArchitecture} ({ex.GetType().Name}: {ex.Message})";
-            logger.LogWarning("Title Cards: {Reason}; cards will be built without keeping text out from behind the title", reason);
+            logger.LogWarning("Title Cards: {Reason}; cards will be built without excluding text from behind the title", reason);
             return new TextDetector(null, reason);
         }
     }

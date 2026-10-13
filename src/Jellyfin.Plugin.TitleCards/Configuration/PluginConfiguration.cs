@@ -35,4 +35,16 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets views the plugin leaves alone.
     /// </summary>
     public Guid[] ExcludedViewIds { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets a value indicating whether users who haven't chosen in their own settings see
+    /// title cards (otherwise they see Jellyfin's images until they turn cards on).
+    /// </summary>
+    public bool ShowTitleCardsByDefault { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether cards saved into views' own image slots by versions
+    /// before 0.2 have been handed back to Jellyfin.
+    /// </summary>
+    public bool ImageSlotsReturned { get; set; }
 }

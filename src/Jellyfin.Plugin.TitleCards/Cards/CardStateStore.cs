@@ -1,6 +1,5 @@
 using System.Text.Json;
 using MediaBrowser.Controller.Entities;
-using MediaBrowser.Model.Entities;
 
 namespace Jellyfin.Plugin.TitleCards.Cards;
 
@@ -15,22 +14,28 @@ public sealed class CardRecord
     /// <summary>Gets or sets the names of the items in the tiles.</summary>
     public string[] Tiles { get; set; } = [];
 
-    /// <summary>Gets or sets the Primary image path after the card was saved.</summary>
+    /// <summary>
+    /// Gets or sets the view's Primary image path after a version before 0.2 saved the card into
+    /// it; null once that image has been handed back to Jellyfin (0.2 keeps cards to itself).
+    /// </summary>
     public string? ImagePath { get; set; }
 
-    /// <summary>Gets or sets the Primary image modification time after the card was saved.</summary>
+    /// <summary>Gets or sets that image's modification time.</summary>
     public DateTime? ImageModified { get; set; }
 
     /// <summary>Gets or sets a value indicating whether no card could be built (the image was left alone).</summary>
     public bool Skipped { get; set; }
+
+    /// <summary>Gets or sets how many candidate images the view had.</summary>
+    public int Candidates { get; set; }
 
     /// <summary>Gets or sets when the view was last handled.</summary>
     public DateTime CheckedAt { get; set; }
 }
 
 /// <summary>
-/// Remembers which image each view had when the plugin last handled it, so new views and images
-/// the server has since replaced can be told apart from the plugin's own cards.
+/// Remembers what the plugin last did for each view, so the missing-cards check can tell new
+/// views from ones already handled.
 /// </summary>
 public sealed class CardStateStore
 {
@@ -47,33 +52,35 @@ public sealed class CardStateStore
     public CardStateStore(string dataFolder) => _path = Path.Combine(dataFolder, "title-cards-state.json");
 
     /// <summary>
-    /// Whether a view has never been handled, or its image is no longer the one recorded.
+    /// Whether a view needs a card: never handled, given a card that is no longer stored, or
+    /// empty when last checked (a new library is usually seen before its first scan fills it).
+    /// Views whose images were all rejected wait for the nightly refresh, so the text detector
+    /// isn't rerun on them every check.
     /// </summary>
-    /// <param name="view">The view.</param>
+    /// <param name="viewId">The view.</param>
+    /// <param name="hasCard">Whether a card is stored for it.</param>
     /// <returns>True when the view needs a card.</returns>
-    public bool NeedsCard(BaseItem view)
+    public bool NeedsCard(Guid viewId, bool hasCard)
     {
         lock (_lock)
         {
-            if (!Records.TryGetValue(view.Id, out var record))
+            if (!Records.TryGetValue(viewId, out var record))
             {
                 return true;
             }
 
-            var image = view.GetImageInfo(ImageType.Primary, 0);
-            return !string.Equals(record.ImagePath, image?.Path, StringComparison.Ordinal)
-                || record.ImageModified != image?.DateModified;
+            return !hasCard && (!record.Skipped || record.Candidates == 0);
         }
     }
 
     /// <summary>
-    /// Records the view's current image after the plugin handled it.
+    /// Records what the plugin did for a view.
     /// </summary>
     /// <param name="view">The view.</param>
     /// <param name="tiles">Names of the items in the tiles; empty when skipped.</param>
-    public void Record(BaseItem view, IEnumerable<string> tiles)
+    /// <param name="candidates">How many candidate images the view had.</param>
+    public void Record(BaseItem view, IEnumerable<string> tiles, int candidates)
     {
-        var image = view.GetImageInfo(ImageType.Primary, 0);
         var names = tiles.ToArray();
         lock (_lock)
         {
@@ -81,16 +88,50 @@ public sealed class CardStateStore
             {
                 Title = view.Name,
                 Tiles = names,
-                ImagePath = image?.Path,
-                ImageModified = image?.DateModified,
                 Skipped = names.Length == 0,
+                Candidates = candidates,
                 CheckedAt = DateTime.UtcNow,
             };
-            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-            var temporary = _path + ".tmp";
-            File.WriteAllText(temporary, JsonSerializer.Serialize(Records, JsonOptions));
-            File.Move(temporary, _path, overwrite: true);
+            Save();
         }
+    }
+
+    /// <summary>
+    /// Views whose own image slot still holds a card saved by a version before 0.2, with the
+    /// image recorded at the time.
+    /// </summary>
+    /// <returns>View ids, image paths and modification times.</returns>
+    public List<(Guid ViewId, string ImagePath, DateTime? ImageModified)> CardsInImageSlots()
+    {
+        lock (_lock)
+        {
+            return [.. Records
+                .Where(entry => entry.Value.ImagePath is not null && !entry.Value.Skipped)
+                .Select(entry => (entry.Key, entry.Value.ImagePath!, entry.Value.ImageModified))];
+        }
+    }
+
+    /// <summary>
+    /// Forgets that a view's image slot held a card (it has been handed back to Jellyfin).
+    /// </summary>
+    /// <param name="viewId">The view.</param>
+    public void ForgetImageSlot(Guid viewId)
+    {
+        lock (_lock)
+        {
+            if (Records.TryGetValue(viewId, out var record))
+            {
+                record.ImagePath = null;
+                record.ImageModified = null;
+                Save();
+            }
+        }
+    }
+
+    private void Save()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+        SafeFile.WriteAllText(_path, JsonSerializer.Serialize(Records, JsonOptions));
     }
 
     private Dictionary<Guid, CardRecord> Records

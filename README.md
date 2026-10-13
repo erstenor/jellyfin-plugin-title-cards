@@ -7,7 +7,11 @@ own artwork, with the library name drawn exactly the way Jellyfin draws it. Ever
 one, including Live TV (for which Jellyfin doesn't automatically generate an image), recordings, grouped
 views and libraries added later. Images containing logos and lettering in the artwork that would obscure the library title are excluded.
 
-**Status:** 0.1, an early release for Jellyfin 12.2. It runs on one server so far, so
+Each user chooses whether they see title cards or Jellyfin's own library images, and the choice
+applies in all their apps, including TV apps (tested with Android TV / Fire TV). Jellyfin's own
+images are left untouched and keep refreshing as usual.
+
+**Status:** 0.2, an early release for Jellyfin 12.2. It runs on one server so far, so
 [feedback and issues](https://github.com/erstenor/jellyfin-plugin-title-cards/issues) are very
 welcome.
 
@@ -24,9 +28,9 @@ outer corners, clear of it:
 
 ![Before and after: Jellyfin's default library images and Title Cards collages](docs/images/before-after.jpg)
 
-Every library type on the test server: Live TV, TV shows, movies, collections, audiobooks, books,
-music, music videos, photos and playlists. The Playlists card is built from what's in the
-playlists (here music, music videos, movies and episodes) rather than Jellyfin's playlist mosaics.
+Every library type: Live TV, TV shows, movies, collections, audiobooks, books, music, music
+videos, photos and playlists. The Playlists card is built from what's in the playlists (here
+albums and music videos) rather than Jellyfin's playlist mosaics.
 With **Crop square and portrait art to fill its tile** off (the
 default), covers whose shape is far from their tile's are shown whole on a blurred copy of
 themselves, as on the highlighted Books card:
@@ -47,8 +51,10 @@ artwork. A tile whose
 shape is close to its cover's (within 1.25×, such as a square cover in a two-tile half) is always
 cropped slightly, whatever the setting.
 
-The audiobook, book, music and photo libraries on the test server hold openly licensed sample
-media; more testing on servers with large libraries of those types is welcome.
+The Live TV, TV Shows, Movies and Collections cards come from the maintainer's server. The other
+six come from a test server holding only public-domain, CC0 and CC BY sample media (see
+[Image credits](#image-credits)); more testing on servers with large libraries of those types is
+welcome.
 
 ## Install
 
@@ -75,9 +81,16 @@ the latest version from the Catalog (and restart) to switch to a normal, auto-up
 New versions can take a few minutes to appear in the Catalog after a release, while GitHub's
 cache of the repository file refreshes.
 
-**Uninstall:** remove the plugin from Dashboard > Plugins and restart. The cards stay as each
-library's image until you replace them: delete a library's image under Edit Images and Jellyfin
-generates its own again on the next library scan.
+**Upgrading from 0.1:** versions before 0.2 saved cards into each library's own image, where
+Jellyfin then stopped refreshing its image. On its first start, 0.2 removes those cards (only
+where the library image is still the card the plugin saved, so images you uploaded since are
+left alone) and Jellyfin rebuilds its own. Live TV has no Jellyfin-made image, so users who turn
+cards off see the app's plain Live TV card unless you upload an image for it.
+
+**Uninstall:** remove the plugin from Dashboard > Plugins and restart. Everyone then sees
+Jellyfin's own library images, which the plugin never changed. Its cards and settings stay in
+the plugin's data folder (`plugins/Jellyfin.Plugin.TitleCards/` under Jellyfin's data folder)
+until you delete it.
 
 ## What it does
 
@@ -98,18 +111,20 @@ For each view any enabled user sees on the home screen (once each):
    the title). Its artwork is each program's image from your guide data (the XMLTV `<icon>`
    element, or Schedules Direct's program images). Jellyfin doesn't look guide artwork up
    elsewhere, so if your EPG provider supplies no program images, or only portrait or text-heavy
-   ones, there is nothing to build a Live TV card from and it keeps its current image. The log
-   shows `Title Cards: Live TV: no images clear the title (0 candidates); image kept`. Libraries
+   ones, there is nothing to build a Live TV card from and it keeps its current card, if it has
+   one. The log shows `Title Cards: Live TV: no images clear the title (0 candidates); its
+   current card (or Jellyfin's image) is kept`. Libraries
    that contain a Live TV recording folder (e.g. DVR) use their recordings first, topped up from
    what's airing.
 3. **Keeps text clear of the title**: an image is skipped for a tile if text is detected where
    the title covers that tile (with a 24px margin). Text elsewhere in the image is fine.
 4. **Lays out** the largest arrangement it can fill: 4 tiles, else 3, 2 or 1. If nothing usable
-   clears the title, the library keeps its current image.
+   clears the title, the library keeps its current card, or Jellyfin's image if it has none.
 5. **Draws** with Jellyfin's own recipe: black layer at alpha 0x78, the library name in the
    server's bold sans-serif at 112px, centered, baseline at half height plus half the x-height
    (see [Fonts](#fonts)).
-6. **Saves** the card as the view's Primary image, the same way an image upload does.
+6. **Keeps** the card in the plugin's data folder and shows it to the users who see title cards
+   (see [Who sees title cards](#who-sees-title-cards)). The library's own image stays Jellyfin's.
 
 ### When cards are built
 
@@ -119,17 +134,50 @@ For each view any enabled user sees on the home screen (once each):
 | A user's home settings change, or a library is added | Missing cards only, about 20 seconds later |
 | Server start, and every 30 minutes (*Create missing title cards*) | Missing cards only; a safety net |
 
-"Missing" means a view the plugin hasn't handled, or one whose image is no longer the card it
-saved (for example, the server regenerated its own). Changing **Home > Library Folders**
+"Missing" means a view the plugin hasn't handled, one whose card is no longer stored, or one
+that was empty when last checked (a new library is usually seen before its first scan fills it).
+A library whose images were all rejected by the text filter waits for the nightly refresh, so
+the text detector isn't rerun on it every half hour. Changing **Home > Library Folders**
 (grouped folders) gives that user a new combined view for the new combination of libraries, so
 it gets a card shortly after. With nothing missing, these checks finish without loading the
 text detector.
+
+### Who sees title cards
+
+Each user sees either title cards or Jellyfin's own library images:
+
+- **Users choose for themselves** in the web client under **Settings > Display > Show title
+  cards**. The choice is saved on the server, so it applies in every app they sign in to,
+  including TV apps, which have no setting of their own: set it once in a browser. Tested with
+  the web client and Android TV / Fire TV; other apps get the same server replies, and reports
+  from them are welcome. The setting needs the
+  [File Transformation](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation)
+  plugin to appear in the web client; without it, everything else works the same.
+- **Admins can set it for them** under **Per-user choices** on the plugin's settings page, with
+  or without File Transformation.
+- **Everyone else** follows **Show title cards to users who haven't chosen** (on by default).
+
+![The Show title cards setting in Settings > Display](docs/images/display-setting.png)
+
+How it works: a library's own image stays Jellyfin's, generated and refreshed by Jellyfin as
+usual. When the server lists libraries for a user who sees title cards (the home screen's
+library row in every app, and other home-screen plugins that list libraries), the plugin points
+each library at its card instead. A user's choice applies the next time their app loads the home
+screen; an app that has the images cached may need to be restarted.
+
+Users who turn cards off see exactly what Jellyfin shows without the plugin: one backdrop with
+the library name for most libraries, a strip of posters for Collections and Playlists (whose
+items have posters rather than backdrops), and for Live TV the app's plain icon card, or an image
+you upload for Live TV under its Edit Images.
 
 ### Settings
 
 Dashboard > Plugins > Title Cards:
 
-- **Keep text out from behind the title** (on)
+- **Show title cards to users who haven't chosen** (on)
+- **Per-user choices**: each user with *Server default*, *On* or *Off*, with a summary, a search
+  box and a filter to show only users who have chosen, for servers with many users
+- **Exclude text from behind the title** (on)
 - **Leave sports out of Live TV cards** (on)
 - **Crop square and portrait art to fill its tile** (off). Album, book and audiobook covers fill
   their tiles edge to edge like backdrops do, at the cost of their top and bottom: a square cover
@@ -208,7 +256,7 @@ Needs the .NET 10 SDK; packaging also needs Python 3.
 ```sh
 dotnet build Jellyfin.Plugin.TitleCards.sln
 dotnet test Jellyfin.Plugin.TitleCards.sln
-python build/package.py --version 0.1.0.0      # dist/title-cards_0.1.0.0.zip
+python build/package.py --version 0.2.0.0      # dist/title-cards_0.2.0.0.zip
 ```
 
 Releasing: `python build/package.py --version X --changelog "..." --manifest` builds the zip and
@@ -217,7 +265,9 @@ the manifest.
 
 Tests cover tile layout and selection, the renderer (including the per-character font fallback;
 its Japanese test checks the drawing when a Japanese font is installed and the missing-character
-report when not), and the detector's post-processing.
+report when not), the detector's post-processing, the card store and image tags, per-user
+choices, the missing-cards check, and the web client script injection (which must change
+`index.html` and nothing else).
 `DetectorParityTests` also compares the plugin's text detection with
 [RapidOCR](https://github.com/RapidAI/RapidOCR) (detection and recognition) on real artwork, when
 `TITLECARDS_FIXTURES` points at fixtures made by `build/make_parity_fixtures.py` from your own
@@ -228,6 +278,9 @@ skipping an image. It never let through text that RapidOCR caught.
 | Path | Contents |
 |---|---|
 | `src/Jellyfin.Plugin.TitleCards/Cards/` | Artwork selection, tile layout, rendering, text detection, saved-card state |
+| `src/Jellyfin.Plugin.TitleCards/Variants/` | Card store, and the filter that shows cards to the users who see them |
+| `src/Jellyfin.Plugin.TitleCards/Preferences/`, `Api/` | Per-user choices and their API (`/TitleCards/Preference`, `/TitleCards/Preferences`) |
+| `src/Jellyfin.Plugin.TitleCards/Web/` | The Settings > Display script, added to the web client through File Transformation |
 | `src/Jellyfin.Plugin.TitleCards/ScheduledTasks/` | *Refresh title cards* and *Create missing title cards* |
 | `src/Jellyfin.Plugin.TitleCards/ChangeMonitor.cs` | Reacts to home-settings changes and new libraries |
 | `tests/` | xUnit tests |
@@ -251,11 +304,32 @@ are welcome whether or not you use AI tools yourself.
 
 ## Image credits
 
-The audiobook, book, music and photo cards in the screenshots are built from public-domain and
-openly licensed sample media: [LibriVox](https://librivox.org/) recordings and covers,
-[Project Gutenberg](https://www.gutenberg.org/) ebooks, Internet Archive netlabel albums,
-[Wikimedia Commons](https://commons.wikimedia.org/) photographs and
-[Art Institute of Chicago](https://www.artic.edu/open-access) open-access artworks.
+The Audiobooks, Books, Music, Music Videos, Photos and Playlists cards in the library screenshots
+are cropped and combined from the works below. Audiobook and book covers are public-domain
+[LibriVox](https://librivox.org/) recordings and [Project Gutenberg](https://www.gutenberg.org/)
+ebooks.
+
+- **Music videos** (frames, from [Wikimedia Commons](https://commons.wikimedia.org/)):
+  - [Jasmine Rae - Heartbeat](https://commons.wikimedia.org/wiki/File:Jasmine_Rae_-_Heartbeat_(Official_Music_Video).webm), Jasmine Rae, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)
+  - [Katy Adelson - Carmen Habanera (Violin Version)](https://commons.wikimedia.org/wiki/File:Carmen_-_Habanera_~_Violin_Version!.webm), Katy Adelson, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)
+  - [PIXA X BYEALEX - APÁTOK](https://commons.wikimedia.org/wiki/File:PIXA_X_BYEALEX_-_AP%C3%81TOK_(OFFICIAL_MUSIC_VIDEO)-_7PaQ-yF4vc.webm), pixamusic, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)
+  - [Tempalay - Sonatine](https://commons.wikimedia.org/wiki/File:Tempalay_-_Sonatine_(Official_Music_Video)%E2%81%A3%E2%81%A3.webm), PERIMETRON, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)
+  - [ロッカジャポニカ - Spring Tour 2018 Live Digest](https://commons.wikimedia.org/wiki/File:%E3%80%90LIVE%E3%80%91_%E3%80%8C%E3%83%AD%E3%83%83%E3%82%AB%E3%82%B8%E3%83%A3%E3%83%9D%E3%83%8B%E3%82%AB_Spring_Tour_2018_%EF%BD%9ERe-view_ROCK_A_JAPONICA%E3%80%9C_FINAL_%E6%B8%8B%E8%B0%B7_CLUB_QUATTRO%E3%80%8D_LIVE_DIGEST.webm), ROCK A JAPONICA Official Channel, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)
+- **Album covers** (Internet Archive netlabel releases):
+  - [Chenard Walcker - Sweet Kali Breathe (2004)](https://archive.org/details/chenard_walcker-sweet_kali_breathe), Chenard Walcker, [CC BY 2.0](https://creativecommons.org/licenses/by/2.0/)
+  - [Deadman & Digi Hartatak & Electric Stiletto - Letter B](https://archive.org/details/LetterB), Deadman & Digi Hartatak & Electric Stiletto, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)
+  - [Digi Hartatak - Dull Duco Dances (2009)](https://archive.org/details/dullducodances), Digi Hartatak, [CC BY 3.0 US](https://creativecommons.org/licenses/by/3.0/us/)
+  - [Vlad Shegal - SPUTNIKRECORDS007 (2012)](https://archive.org/details/SPUTNIKRECORDS007), Vlad Shegal, [CC0](https://creativecommons.org/publicdomain/zero/1.0/)
+  - [Команданто Чё Vlad Shegal - Пол-литра бабушкиных сказок (Split) (2016)](https://archive.org/details/SPUTNIKRECORDS038), Команданто Чё Vlad Shegal, [CC0](https://creativecommons.org/publicdomain/zero/1.0/)
+- **Photographs and paintings** (Wikimedia Commons; the paintings are [Art Institute of Chicago](https://www.artic.edu/open-access) open-access images):
+  - [International Commerce Centre on Victoria Harbour](https://commons.wikimedia.org/wiki/File:International_Commerce_Centre_on_Victoria_Harbour.jpg), Wilfredor, [CC0](https://creativecommons.org/publicdomain/zero/1.0/)
+  - [Messier 24 (infrared, red, green)](https://commons.wikimedia.org/wiki/File:Messier_24_(infrared,_red,_green).jpg), Brainandforce, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+  - [Messier83 - Heic1403a](https://commons.wikimedia.org/wiki/File:Messier83_-_Heic1403a.jpg), NASA, ESA, and the Hubble Heritage Team (STScI/AURA) Acknowledgement: William Blair (Johns Hopkins University), Public domain
+  - [NGC 3372a-full](https://commons.wikimedia.org/wiki/File:NGC_3372a-full.jpg), NASA, ESA, N. Smith (University of California, Berkeley), and The Hubble Heritage Team (STScI/AURA); credit for CTIO Image: N. Smith (University of California, Berkeley) and NOAO/AURA/NSF, Public domain
+  - [Painting with Troika - Vasily Kandinsky](https://www.artic.edu/artworks/8983), Vasily Kandinsky, January 18, 1911, [CC0](https://creativecommons.org/publicdomain/zero/1.0/)
+  - [Recife Favela Detran street](https://commons.wikimedia.org/wiki/File:Recife_Favela_Detran_street.jpg), Wilfredor, [CC0](https://creativecommons.org/publicdomain/zero/1.0/)
+  - [Sigmaringen August 2015](https://commons.wikimedia.org/wiki/File:Sigmaringen_August_2015.jpg), Felix König, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)
+  - [View to Moscow river from Bolshoy Moskvoretsky Bridge](https://commons.wikimedia.org/wiki/File:View_to_Moscow_river_from_Bolshoy_Moskvoretsky_Bridge.jpg), Anton Zelenov, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)
 
 ## License
 

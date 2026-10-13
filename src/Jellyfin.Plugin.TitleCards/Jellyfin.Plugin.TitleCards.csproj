@@ -13,6 +13,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Provided by the Jellyfin server at runtime. -->
     <PackageReference Include="Jellyfin.Controller" Version="12.2.0">
       <ExcludeAssets>runtime</ExcludeAssets>
@@ -29,6 +33,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Configuration\configPage.html" />
+    <EmbeddedResource Include="Web\title-cards-client.js" LogicalName="title-cards-client.js" />
     <EmbeddedResource Include="Models\text-detection.onnx" LogicalName="text-detection.onnx" />
   </ItemGroup>
 

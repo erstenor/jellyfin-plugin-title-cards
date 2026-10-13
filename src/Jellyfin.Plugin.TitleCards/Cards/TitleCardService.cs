@@ -2,10 +2,12 @@ using Jellyfin.Data;
 using Jellyfin.Data.Enums;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Database.Implementations.Enums;
+using Jellyfin.Plugin.TitleCards.Variants;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Entities;
+using MediaBrowser.Model.IO;
 using MediaBrowser.Model.Library;
 using Microsoft.Extensions.Logging;
 
@@ -18,9 +20,12 @@ public sealed class TitleCardService : IDisposable
 {
     private readonly IUserManager _userManager;
     private readonly IUserViewManager _userViewManager;
+    private readonly ILibraryManager _libraryManager;
     private readonly IProviderManager _providerManager;
+    private readonly IFileSystem _fileSystem;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly CandidateSource _candidates;
+    private readonly VariantImageStore _store;
     private readonly ILogger<TitleCardService> _logger;
     private readonly SemaphoreSlim _runLock = new(1, 1);
     private readonly Lazy<TextDetector> _detector;
@@ -31,23 +36,32 @@ public sealed class TitleCardService : IDisposable
     /// </summary>
     /// <param name="userManager">User manager.</param>
     /// <param name="userViewManager">User view manager.</param>
-    /// <param name="providerManager">Provider manager, which saves item images.</param>
+    /// <param name="libraryManager">Library manager.</param>
+    /// <param name="providerManager">Provider manager, which refreshes Jellyfin's own images.</param>
+    /// <param name="fileSystem">File system.</param>
     /// <param name="httpClientFactory">HTTP client factory.</param>
     /// <param name="candidates">Candidate source.</param>
+    /// <param name="store">Where cards are kept.</param>
     /// <param name="logger">Logger.</param>
     public TitleCardService(
         IUserManager userManager,
         IUserViewManager userViewManager,
+        ILibraryManager libraryManager,
         IProviderManager providerManager,
+        IFileSystem fileSystem,
         IHttpClientFactory httpClientFactory,
         CandidateSource candidates,
+        VariantImageStore store,
         ILogger<TitleCardService> logger)
     {
         _userManager = userManager;
         _userViewManager = userViewManager;
+        _libraryManager = libraryManager;
         _providerManager = providerManager;
+        _fileSystem = fileSystem;
         _httpClientFactory = httpClientFactory;
         _candidates = candidates;
+        _store = store;
         _logger = logger;
         // Loaded on first use, so runs with nothing to do never load the model.
         _detector = new Lazy<TextDetector>(() => TextDetector.Create(logger));
@@ -67,10 +81,11 @@ public sealed class TitleCardService : IDisposable
         await _runLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            await ReturnImageSlotsAsync(cancellationToken).ConfigureAwait(false);
             var config = Plugin.Instance!.Configuration;
             var views = DiscoverViews()
                 .Where(entry => !config.ExcludedViewIds.Contains(entry.View.Id))
-                .Where(entry => !missingOnly || State.NeedsCard(entry.View))
+                .Where(entry => !missingOnly || State.NeedsCard(entry.View.Id, _store.TagFor(entry.View.Id, VariantImageStore.Card) is not null))
                 .ToList();
             if (views.Count == 0)
             {
@@ -147,8 +162,8 @@ public sealed class TitleCardService : IDisposable
         var tiles = TilePicker.Pick(candidates, CardRenderer.TitleBand(title), images.TextBoxes);
         if (tiles.Count == 0)
         {
-            _logger.LogInformation("Title Cards: {View}: no images clear the title ({Count} candidates); image kept", title, candidates.Count);
-            State.Record(view, []);
+            _logger.LogInformation("Title Cards: {View}: no images clear the title ({Count} candidates); its current card (or Jellyfin's image) is kept", title, candidates.Count);
+            State.Record(view, [], candidates.Count);
             return;
         }
 
@@ -158,14 +173,54 @@ public sealed class TitleCardService : IDisposable
             png = CardRenderer.EncodePng(card);
         }
 
-        using (var stream = new MemoryStream(png))
+        // The view's own image stays Jellyfin's; users who see cards are pointed at this one.
+        await _store.SaveAsync(view.Id, VariantImageStore.Card, png, cancellationToken).ConfigureAwait(false);
+        var names = tiles.Select(tile => tile.Candidate.Name).ToList();
+        State.Record(view, names, candidates.Count);
+        _logger.LogInformation("Title Cards: {View}: card saved [{Tiles}]", title, string.Join(", ", names));
+    }
+
+    /// <summary>
+    /// Versions before 0.2 saved cards into views' own image slots, where Jellyfin then stopped
+    /// refreshing its images. Removes those cards (only where the slot still holds the card the
+    /// plugin saved) and lets Jellyfin rebuild its own images. Runs once.
+    /// </summary>
+    private async Task ReturnImageSlotsAsync(CancellationToken cancellationToken)
+    {
+        var plugin = Plugin.Instance!;
+        if (plugin.Configuration.ImageSlotsReturned)
         {
-            await _providerManager.SaveImage(view, stream, "image/png", ImageType.Primary, null, cancellationToken).ConfigureAwait(false);
+            return;
         }
 
-        await view.UpdateToRepositoryAsync(ItemUpdateType.ImageUpdate, cancellationToken).ConfigureAwait(false);
-        var names = tiles.Select(tile => tile.Candidate.Name).ToList();
-        State.Record(view, names);
-        _logger.LogInformation("Title Cards: {View}: card saved [{Tiles}]", title, string.Join(", ", names));
+        foreach (var (viewId, imagePath, imageModified) in State.CardsInImageSlots())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                var view = _libraryManager.GetItemById(viewId);
+                var image = view?.GetImageInfo(ImageType.Primary, 0);
+                if (view is not null && image is not null
+                    && string.Equals(image.Path, imagePath, StringComparison.Ordinal)
+                    && image.DateModified == imageModified)
+                {
+                    await view.DeleteImageAsync(ImageType.Primary, 0).ConfigureAwait(false);
+                    _providerManager.QueueRefresh(
+                        view.Id,
+                        new MetadataRefreshOptions(new DirectoryService(_fileSystem)) { ImageRefreshMode = MetadataRefreshMode.Default },
+                        RefreshPriority.High);
+                    _logger.LogInformation("Title Cards: {View}: returned its image to Jellyfin", view.Name);
+                }
+
+                State.ForgetImageSlot(viewId);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "Title Cards: could not return the image of view {ViewId} to Jellyfin", viewId);
+            }
+        }
+
+        plugin.Configuration.ImageSlotsReturned = true;
+        plugin.SaveConfiguration();
     }
 }
