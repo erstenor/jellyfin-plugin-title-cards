@@ -73,7 +73,7 @@ public sealed class VariantImageFilter : IAsyncResultFilter, IAsyncActionFilter
                 var userId = UserOf(context);
                 if (config is not null && userId != Guid.Empty && _preferences.ShowsTitleCards(userId, config.ShowTitleCardsByDefault))
                 {
-                    ApplyCards(items, config.ExcludedViewIds);
+                    ApplyCards(items, config.ExcludedViewIds, _preferences.CropsToFill(userId, config.CropToFill));
                 }
             }
             catch (Exception ex)
@@ -90,11 +90,20 @@ public sealed class VariantImageFilter : IAsyncResultFilter, IAsyncActionFilter
     /// </summary>
     /// <param name="items">Items in a reply; only views have cards.</param>
     /// <param name="excluded">Views the admin left out.</param>
-    public void ApplyCards(IEnumerable<BaseItemDto> items, IReadOnlyCollection<Guid> excluded)
+    /// <param name="cropToFill">Use the cropped card where there is one.</param>
+    public void ApplyCards(IEnumerable<BaseItemDto> items, IReadOnlyCollection<Guid> excluded, bool cropToFill)
     {
         foreach (var item in items)
         {
-            if (item is null || excluded.Contains(item.Id) || _store.TagFor(item.Id, VariantImageStore.Card) is not { } tag)
+            if (item is null || excluded.Contains(item.Id))
+            {
+                continue;
+            }
+
+            // Views with nothing to crop have no cropped card; everyone gets the one card there.
+            var tag = (cropToFill ? _store.TagFor(item.Id, VariantImageStore.CroppedCard) : null)
+                ?? _store.TagFor(item.Id, VariantImageStore.Card);
+            if (tag is null)
             {
                 continue;
             }

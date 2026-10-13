@@ -100,7 +100,7 @@ public sealed class TitleCardService : IDisposable
                 var (view, user) = views[index];
                 try
                 {
-                    await BuildCardAsync(view, user, detector, config.ExcludeSports, config.CropToFill, cancellationToken).ConfigureAwait(false);
+                    await BuildCardAsync(view, user, detector, config.ExcludeSports, cancellationToken).ConfigureAwait(false);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -148,7 +148,7 @@ public sealed class TitleCardService : IDisposable
         return [.. views.Values];
     }
 
-    private async Task BuildCardAsync(Folder view, User user, TextDetector? detector, bool excludeSports, bool cropToFill, CancellationToken cancellationToken)
+    private async Task BuildCardAsync(Folder view, User user, TextDetector? detector, bool excludeSports, CancellationToken cancellationToken)
     {
         var title = view.Name;
         var missing = CardRenderer.MissingCharacters(title);
@@ -158,8 +158,10 @@ public sealed class TitleCardService : IDisposable
         }
 
         var candidates = _candidates.ForView(view, user, excludeSports);
-        using var images = new CardImages(_httpClientFactory, detector, _logger, cropToFill);
-        var tiles = TilePicker.Pick(candidates, CardRenderer.TitleBand(title), images.TextBoxes);
+        using var images = new CardImages(_httpClientFactory, detector, _logger);
+        // A cover is used only where its lettering clears the title both shown whole and cropped,
+        // so the two versions of the card show the same artwork.
+        var tiles = TilePicker.Pick(candidates, CardRenderer.TitleBand(title), images.TextBoxesBothFits);
         if (tiles.Count == 0)
         {
             _logger.LogInformation("Title Cards: {View}: no images clear the title ({Count} candidates); its current card (or Jellyfin's image) is kept", title, candidates.Count);
@@ -167,17 +169,28 @@ public sealed class TitleCardService : IDisposable
             return;
         }
 
-        byte[] png;
-        using (var card = CardRenderer.Compose(tiles.Select(tile => (images.Tile(tile.Candidate, tile.Tile.Size)!, tile.Tile)), title))
+        // The view's own image stays Jellyfin's; users who see cards are pointed at these.
+        await _store.SaveAsync(view.Id, VariantImageStore.Card, Render(images, tiles, title, cropToFill: false), cancellationToken).ConfigureAwait(false);
+        var cropped = tiles.Any(tile => images.CropChangesFit(tile.Candidate, tile.Tile.Size));
+        if (cropped)
         {
-            png = CardRenderer.EncodePng(card);
+            await _store.SaveAsync(view.Id, VariantImageStore.CroppedCard, Render(images, tiles, title, cropToFill: true), cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            // Nothing to crop (backdrops fill their tiles already): everyone gets the one card.
+            _store.Delete(view.Id, VariantImageStore.CroppedCard);
         }
 
-        // The view's own image stays Jellyfin's; users who see cards are pointed at this one.
-        await _store.SaveAsync(view.Id, VariantImageStore.Card, png, cancellationToken).ConfigureAwait(false);
         var names = tiles.Select(tile => tile.Candidate.Name).ToList();
         State.Record(view, names, candidates.Count);
-        _logger.LogInformation("Title Cards: {View}: card saved [{Tiles}]", title, string.Join(", ", names));
+        _logger.LogInformation("Title Cards: {View}: card saved{Cropped} [{Tiles}]", title, cropped ? " (and a cropped version)" : string.Empty, string.Join(", ", names));
+    }
+
+    private static byte[] Render(CardImages images, IReadOnlyList<(CardCandidate Candidate, Box Tile)> tiles, string title, bool cropToFill)
+    {
+        using var card = CardRenderer.Compose(tiles.Select(tile => (images.Tile(tile.Candidate, tile.Tile.Size, cropToFill)!, tile.Tile)), title);
+        return CardRenderer.EncodePng(card);
     }
 
     /// <summary>

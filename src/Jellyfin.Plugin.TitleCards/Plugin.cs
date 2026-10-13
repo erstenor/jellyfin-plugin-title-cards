@@ -41,6 +41,9 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         {
             Name = Name,
             EmbeddedResourcePath = $"{GetType().Namespace}.Configuration.configPage.html",
+            // Listed under Plugins in the dashboard's side menu, like other plugins with settings.
+            EnableInMainMenu = true,
+            MenuIcon = "view_quilt",
         };
     }
 }

@@ -45,20 +45,23 @@ public class TitleCardsController : ControllerBase
             return Unauthorized();
         }
 
-        var serverDefault = Plugin.Instance!.Configuration.ShowTitleCardsByDefault;
+        var config = Plugin.Instance!.Configuration;
         var preference = _preferences.Get(userId);
         return new PreferenceDto
         {
-            ShowTitleCards = preference.ShowTitleCards ?? serverDefault,
+            ShowTitleCards = preference.ShowTitleCards ?? config.ShowTitleCardsByDefault,
             IsDefault = preference.ShowTitleCards is null,
-            ServerDefault = serverDefault,
+            ServerDefault = config.ShowTitleCardsByDefault,
+            CropToFill = preference.CropToFill ?? config.CropToFill,
+            CropIsDefault = preference.CropToFill is null,
+            ServerCropDefault = config.CropToFill,
         };
     }
 
     /// <summary>
     /// Saves the signed-in user's choice. Applies in every client from its next home-screen load.
     /// </summary>
-    /// <param name="request">The choice; null showTitleCards returns to the server default.</param>
+    /// <param name="request">The changes; fields left out stay as they are.</param>
     /// <returns>The saved choice.</returns>
     [HttpPost("Preference")]
     [Authorize]
@@ -70,7 +73,7 @@ public class TitleCardsController : ControllerBase
             return Unauthorized();
         }
 
-        _preferences.Set(userId, new UserPreference { ShowTitleCards = request.ShowTitleCards });
+        _preferences.Set(userId, request.ApplyTo(_preferences.Get(userId)));
         return GetPreference();
     }
 
@@ -89,6 +92,7 @@ public class TitleCardsController : ControllerBase
                 UserId = user.Id,
                 Name = user.Username,
                 ShowTitleCards = _preferences.Get(user.Id).ShowTitleCards,
+                CropToFill = _preferences.Get(user.Id).CropToFill,
             })
             .ToList();
 
@@ -96,7 +100,7 @@ public class TitleCardsController : ControllerBase
     /// Sets a user's choice on their behalf (the same choice they can make in Settings &gt; Display).
     /// </summary>
     /// <param name="userId">The user.</param>
-    /// <param name="request">The choice; null returns the user to the server default.</param>
+    /// <param name="request">The changes; fields left out stay as they are.</param>
     /// <returns>No content.</returns>
     [HttpPost("Preferences/{userId}")]
     [Authorize(Policy = "RequiresElevation")]
@@ -109,7 +113,7 @@ public class TitleCardsController : ControllerBase
             return NotFound();
         }
 
-        _preferences.Set(userId, new UserPreference { ShowTitleCards = request.ShowTitleCards });
+        _preferences.Set(userId, request.ApplyTo(_preferences.Get(userId)));
         return NoContent();
     }
 
@@ -144,6 +148,15 @@ public sealed class PreferenceDto
 
     /// <summary>Gets or sets a value indicating whether users who haven't chosen see cards.</summary>
     public bool ServerDefault { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether the user's cards crop covers to fill their tiles.</summary>
+    public bool CropToFill { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether that comes from the server default.</summary>
+    public bool CropIsDefault { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether users who haven't chosen get cropped covers.</summary>
+    public bool ServerCropDefault { get; set; }
 }
 
 /// <summary>
@@ -159,13 +172,38 @@ public sealed class UserPreferenceDto
 
     /// <summary>Gets or sets the choice; null follows the server default.</summary>
     public bool? ShowTitleCards { get; set; }
+
+    /// <summary>Gets or sets the crop choice; null follows the server default.</summary>
+    public bool? CropToFill { get; set; }
 }
 
 /// <summary>
-/// A change to a user's choice.
+/// Changes to a user's choices. Fields left out (or null) stay as they are; fields named in
+/// <see cref="Reset"/> return to the server default.
 /// </summary>
 public sealed class PreferenceRequest
 {
-    /// <summary>Gets or sets the choice; null returns to the server default.</summary>
+    /// <summary>Gets or sets whether the user sees title cards.</summary>
     public bool? ShowTitleCards { get; set; }
+
+    /// <summary>Gets or sets whether the user's cards crop covers to fill their tiles.</summary>
+    public bool? CropToFill { get; set; }
+
+    /// <summary>Gets or sets the fields to return to the server default ("ShowTitleCards", "CropToFill").</summary>
+    public string[]? Reset { get; set; }
+
+    /// <summary>
+    /// Applies these changes to a user's current choices.
+    /// </summary>
+    /// <param name="current">The current choices.</param>
+    /// <returns>The new choices.</returns>
+    public UserPreference ApplyTo(UserPreference current)
+    {
+        bool Resets(string field) => Reset?.Contains(field, StringComparer.OrdinalIgnoreCase) == true;
+        return new UserPreference
+        {
+            ShowTitleCards = Resets(nameof(ShowTitleCards)) ? null : ShowTitleCards ?? current.ShowTitleCards,
+            CropToFill = Resets(nameof(CropToFill)) ? null : CropToFill ?? current.CropToFill,
+        };
+    }
 }

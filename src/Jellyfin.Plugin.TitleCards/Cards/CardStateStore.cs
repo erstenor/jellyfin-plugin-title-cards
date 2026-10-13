@@ -29,6 +29,12 @@ public sealed class CardRecord
     /// <summary>Gets or sets how many candidate images the view had.</summary>
     public int Candidates { get; set; }
 
+    /// <summary>
+    /// Gets or sets the card format the view was built with (<see cref="CardStateStore.CurrentFormat"/>);
+    /// older cards are rebuilt once.
+    /// </summary>
+    public int Format { get; set; }
+
     /// <summary>Gets or sets when the view was last handled.</summary>
     public DateTime CheckedAt { get; set; }
 }
@@ -39,6 +45,12 @@ public sealed class CardRecord
 /// </summary>
 public sealed class CardStateStore
 {
+    /// <summary>
+    /// The current card format. 1: per-user cards (0.2). 2: every card drawn with covers whole,
+    /// plus a cropped version where cropping changes it (0.3).
+    /// </summary>
+    public const int CurrentFormat = 2;
+
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     private readonly string _path;
@@ -69,6 +81,11 @@ public sealed class CardStateStore
                 return true;
             }
 
+            if (hasCard && record.Format < CurrentFormat)
+            {
+                return true;
+            }
+
             return !hasCard && (!record.Skipped || record.Candidates == 0);
         }
     }
@@ -90,6 +107,7 @@ public sealed class CardStateStore
                 Tiles = names,
                 Skipped = names.Length == 0,
                 Candidates = candidates,
+                Format = CurrentFormat,
                 CheckedAt = DateTime.UtcNow,
             };
             Save();

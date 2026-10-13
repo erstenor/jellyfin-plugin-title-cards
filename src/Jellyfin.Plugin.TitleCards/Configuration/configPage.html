@@ -24,26 +24,38 @@
                         </label>
                         <div class="fieldDescription checkboxFieldDescription">
                             Users who turn title cards off see Jellyfin's own library images, refreshed by Jellyfin as
-                            usual. A user's choice applies in all their apps, including TV apps.
+                            usual. A user's choices apply in all their apps, including TV apps.
+                        </div>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="CropToFill" name="CropToFill" type="checkbox" is="emby-checkbox" />
+                            <span>Crop covers to fill their tiles for users who haven't chosen</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">
+                            Album, book and audiobook covers fill their tiles edge to edge, losing their top and
+                            bottom. Off: each cover is shown whole on a blurred copy of itself. Libraries of backdrops
+                            (movies, shows, Live TV) look the same either way.
                         </div>
                     </div>
                     <div class="verticalSection">
                         <h3 class="sectionTitle">Per-user choices</h3>
                         <p class="fieldDescription">
-                            Users can set this themselves in the web client under Settings &gt; Display &gt; Show title
-                            cards when the File Transformation plugin is installed. You can also set it for them here,
-                            with or without that plugin.
+                            Users can set these themselves in the web client under Settings &gt; Display when the File
+                            Transformation plugin is installed. You can also set them here, with or without that plugin.
                         </p>
                         <style>
                             #TitleCardsUserTools { display: flex; flex-wrap: wrap; gap: 0.5em 1.5em; align-items: center; margin: 0.5em 0; }
                             #TitleCardsUserSearch { flex: 1 1 14em; min-width: 10em; padding: 0.5em; font: inherit; color: inherit; background: rgba(128, 128, 128, 0.15); border: 1px solid rgba(128, 128, 128, 0.4); border-radius: 0.2em; }
                             #TitleCardsUsers { max-height: 22em; overflow-y: auto; border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 0.2em; margin-bottom: 2em; }
-                            .titleCardsUser { display: flex; align-items: center; justify-content: space-between; gap: 1em; padding: 0.35em 0.75em; }
+                            .titleCardsUser { display: grid; grid-template-columns: minmax(0, 1fr) 9.5em 9.5em; align-items: center; gap: 0.75em; padding: 0.35em 0.75em; }
                             .titleCardsUser:nth-child(even) { background: rgba(128, 128, 128, 0.08); }
+                            .titleCardsUser.heading { font-size: 0.85em; opacity: 0.75; border-bottom: 1px solid rgba(128, 128, 128, 0.3); }
                             .titleCardsUser span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-                            .titleCardsUser select { flex: 0 0 auto; padding: 0.25em; font: inherit; color: inherit; background: rgba(128, 128, 128, 0.15); border: 1px solid rgba(128, 128, 128, 0.4); border-radius: 0.2em; }
+                            .titleCardsUser select { width: 100%; padding: 0.25em; font: inherit; color: inherit; background: rgba(128, 128, 128, 0.15); border: 1px solid rgba(128, 128, 128, 0.4); border-radius: 0.2em; }
+                            .titleCardsUser select:disabled { opacity: 0.5; }
                             .titleCardsUser select option { color: initial; }
-                            .titleCardsUser.changed span::after { content: " (unsaved)"; opacity: 0.6; }
+                            .titleCardsUser.changed span:first-child::after { content: " (unsaved)"; opacity: 0.6; }
                             #TitleCardsUsersEmpty { padding: 0.75em; opacity: 0.7; }
                         </style>
                         <div id="TitleCardsUserSummary" class="fieldDescription"></div>
@@ -77,17 +89,6 @@
                     </div>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label class="emby-checkbox-label">
-                            <input id="CropToFill" name="CropToFill" type="checkbox" is="emby-checkbox" />
-                            <span>Crop square and portrait art to fill its tile</span>
-                        </label>
-                        <div class="fieldDescription checkboxFieldDescription">
-                            Album, book and audiobook covers fill their tile edge to edge, losing their top and bottom.
-                            When off, each cover is shown whole on a blurred copy of itself. Applies from the next
-                            refresh; run "Refresh title cards" to redraw existing cards now.
-                        </div>
-                    </div>
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label class="emby-checkbox-label">
                             <input id="ReactToChanges" name="ReactToChanges" type="checkbox" is="emby-checkbox" />
                             <span>Build cards as soon as home settings or libraries change</span>
                         </label>
@@ -107,42 +108,66 @@
         <script type="text/javascript">
             var TitleCardsConfig = {
                 pluginUniqueId: 'c99c31b2-247e-4280-85a2-824757735f02',
-                fields: ['ShowTitleCardsByDefault', 'EnableTextFilter', 'ExcludeSports', 'CropToFill', 'ReactToChanges']
+                fields: ['ShowTitleCardsByDefault', 'CropToFill', 'EnableTextFilter', 'ExcludeSports', 'ReactToChanges'],
+                // The per-user choices, each with the server-wide default that applies when unset.
+                keys: [
+                    { key: 'ShowTitleCards', label: 'Title cards', fallback: '#ShowTitleCardsByDefault' },
+                    { key: 'CropToFill', label: 'Crop covers', fallback: '#CropToFill' }
+                ]
             };
 
-            // Per-user choices: '' = server default, 'true' = on, 'false' = off.
-            TitleCardsConfig.loadedChoices = {};
+            // Choices as loaded, per user and key: '' = server default, 'true' = on, 'false' = off.
+            TitleCardsConfig.loaded = {};
+
+            TitleCardsConfig.value = function (choice) {
+                return choice === null || choice === undefined ? '' : String(choice);
+            };
+
+            TitleCardsConfig.selector = function (user, item) {
+                var select = document.createElement('select');
+                select.setAttribute('data-userid', user.UserId);
+                select.setAttribute('data-key', item.key);
+                select.setAttribute('aria-label', item.label + ' for ' + user.Name);
+                [['', 'Server default'], ['true', 'On'], ['false', 'Off']].forEach(function (option) {
+                    var element = document.createElement('option');
+                    element.value = option[0];
+                    element.textContent = option[1];
+                    select.appendChild(element);
+                });
+                select.value = TitleCardsConfig.value(user[item.key]);
+                return select;
+            };
 
             TitleCardsConfig.loadUsers = function () {
                 return ApiClient.ajax({ type: 'GET', url: ApiClient.getUrl('TitleCards/Preferences'), dataType: 'json' }).then(function (users) {
                     var container = document.querySelector('#TitleCardsUsers');
-                    TitleCardsConfig.loadedChoices = {};
+                    TitleCardsConfig.loaded = {};
                     container.innerHTML = '';
-                    // One compact line per user (name, then a small selector), so long user lists stay usable.
+                    var heading = document.createElement('div');
+                    heading.className = 'titleCardsUser heading';
+                    ['User'].concat(TitleCardsConfig.keys.map(function (item) { return item.label; })).forEach(function (text) {
+                        var cell = document.createElement('span');
+                        cell.textContent = text;
+                        heading.appendChild(cell);
+                    });
+                    container.appendChild(heading);
+                    // One compact line per user (name, then a small selector per choice), so long user lists stay usable.
                     users.forEach(function (user) {
-                        var value = user.ShowTitleCards === null || user.ShowTitleCards === undefined ? '' : String(user.ShowTitleCards);
-                        TitleCardsConfig.loadedChoices[user.UserId] = value;
+                        TitleCardsConfig.loaded[user.UserId] = {};
                         var row = document.createElement('div');
-                        row.className = 'titleCardsUser';
+                        row.className = 'titleCardsUser member';
                         row.setAttribute('data-name', user.Name.toLowerCase());
                         var name = document.createElement('span');
                         name.textContent = user.Name;
-                        var select = document.createElement('select');
-                        select.setAttribute('data-userid', user.UserId);
-                        select.setAttribute('aria-label', 'Title cards for ' + user.Name);
-                        [['', 'Server default'], ['true', 'On'], ['false', 'Off']].forEach(function (option) {
-                            var element = document.createElement('option');
-                            element.value = option[0];
-                            element.textContent = option[1];
-                            select.appendChild(element);
-                        });
-                        select.value = value;
-                        select.addEventListener('change', function () {
-                            row.classList.toggle('changed', select.value !== TitleCardsConfig.loadedChoices[user.UserId]);
-                            TitleCardsConfig.refreshUsers();
-                        });
                         row.appendChild(name);
-                        row.appendChild(select);
+                        TitleCardsConfig.keys.forEach(function (item) {
+                            TitleCardsConfig.loaded[user.UserId][item.key] = TitleCardsConfig.value(user[item.key]);
+                            var select = TitleCardsConfig.selector(user, item);
+                            select.addEventListener('change', function () {
+                                TitleCardsConfig.refreshUsers();
+                            });
+                            row.appendChild(select);
+                        });
                         container.appendChild(row);
                     });
                     var empty = document.createElement('div');
@@ -152,56 +177,86 @@
                 });
             };
 
-            // Summary counts, search and the "only users with a choice" filter.
+            // Whether a user's choice (or the server default it follows) is on.
+            TitleCardsConfig.effective = function (select, item) {
+                return select.value === '' ? document.querySelector(item.fallback).checked : select.value === 'true';
+            };
+
+            // Summary counts, search, the "only users with a choice" filter and unsaved marks.
             TitleCardsConfig.refreshUsers = function () {
                 var query = document.querySelector('#TitleCardsUserSearch').value.trim().toLowerCase();
                 var onlyChosen = document.querySelector('#TitleCardsOnlyChosen').checked;
-                var counts = { all: 0, on: 0, off: 0, shown: 0 };
-                document.querySelectorAll('#TitleCardsUsers .titleCardsUser').forEach(function (row) {
-                    var value = row.querySelector('select').value;
+                var counts = { all: 0, cards: 0, cropped: 0, chosen: 0, shown: 0 };
+                document.querySelectorAll('#TitleCardsUsers .titleCardsUser.member').forEach(function (row) {
+                    var selects = row.querySelectorAll('select');
+                    var userId = selects[0].getAttribute('data-userid');
+                    var changed = false;
+                    var chosen = false;
+                    selects.forEach(function (select) {
+                        changed = changed || select.value !== TitleCardsConfig.loaded[userId][select.getAttribute('data-key')];
+                        chosen = chosen || select.value !== '';
+                    });
+                    var cards = TitleCardsConfig.effective(selects[0], TitleCardsConfig.keys[0]);
+                    var cropped = cards && TitleCardsConfig.effective(selects[1], TitleCardsConfig.keys[1]);
+                    // Cropping only matters to users who see cards.
+                    selects[1].disabled = !cards;
+                    row.classList.toggle('changed', changed);
                     counts.all++;
-                    counts.on += value === 'true' ? 1 : 0;
-                    counts.off += value === 'false' ? 1 : 0;
+                    counts.cards += cards ? 1 : 0;
+                    counts.cropped += cropped ? 1 : 0;
+                    counts.chosen += chosen ? 1 : 0;
                     var visible = (!query || row.getAttribute('data-name').indexOf(query) >= 0)
-                        && (!onlyChosen || value !== '' || row.classList.contains('changed'));
+                        && (!onlyChosen || chosen || changed);
                     row.style.display = visible ? '' : 'none';
                     counts.shown += visible ? 1 : 0;
                 });
-                var defaultOn = document.querySelector('#ShowTitleCardsByDefault').checked;
+                var see = function (count) { return count + (count === 1 ? ' sees ' : ' see '); };
                 document.querySelector('#TitleCardsUserSummary').textContent = counts.all + (counts.all === 1 ? ' user: ' : ' users: ')
-                    + counts.on + ' on, ' + counts.off + ' off, ' + (counts.all - counts.on - counts.off)
-                    + ' follow the server default (' + (defaultOn ? 'on' : 'off') + ').';
+                    + see(counts.cards) + 'title cards (' + counts.cropped + ' with cropped covers), '
+                    + see(counts.all - counts.cards) + 'Jellyfin\'s images; '
+                    + counts.chosen + (counts.chosen === 1 ? ' has' : ' have') + ' their own setting.';
                 var empty = document.querySelector('#TitleCardsUsersEmpty');
                 if (empty) {
-                    empty.textContent = counts.shown ? '' : (onlyChosen && !query ? 'Every user follows the server default.' : 'No users match.');
+                    empty.textContent = counts.shown ? '' : (onlyChosen && !query ? 'Every user follows the server defaults.' : 'No users match.');
                     empty.style.display = counts.shown ? 'none' : '';
                 }
             };
 
-            document.querySelector('#TitleCardsUserSearch').addEventListener('input', function () {
-                TitleCardsConfig.refreshUsers();
+            ['#TitleCardsUserSearch'].forEach(function (selector) {
+                document.querySelector(selector).addEventListener('input', function () { TitleCardsConfig.refreshUsers(); });
             });
-            document.querySelector('#TitleCardsOnlyChosen').addEventListener('change', function () {
-                TitleCardsConfig.refreshUsers();
-            });
-            document.querySelector('#ShowTitleCardsByDefault').addEventListener('change', function () {
-                TitleCardsConfig.refreshUsers();
+            ['#TitleCardsOnlyChosen', '#ShowTitleCardsByDefault', '#CropToFill'].forEach(function (selector) {
+                document.querySelector(selector).addEventListener('change', function () { TitleCardsConfig.refreshUsers(); });
             });
 
             TitleCardsConfig.saveUsers = function () {
                 var saves = [];
-                document.querySelectorAll('#TitleCardsUsers select[data-userid]').forEach(function (select) {
-                    var userId = select.getAttribute('data-userid');
-                    if (select.value === TitleCardsConfig.loadedChoices[userId]) {
-                        return;
-                    }
+                document.querySelectorAll('#TitleCardsUsers .titleCardsUser.member').forEach(function (row) {
+                    var change = { Reset: [] };
+                    var userId = null;
+                    var changed = false;
+                    row.querySelectorAll('select').forEach(function (select) {
+                        var key = select.getAttribute('data-key');
+                        userId = select.getAttribute('data-userid');
+                        if (select.value === TitleCardsConfig.loaded[userId][key]) {
+                            return;
+                        }
 
-                    saves.push(ApiClient.ajax({
-                        type: 'POST',
-                        url: ApiClient.getUrl('TitleCards/Preferences/' + userId),
-                        contentType: 'application/json',
-                        data: JSON.stringify({ ShowTitleCards: select.value === '' ? null : select.value === 'true' })
-                    }));
+                        changed = true;
+                        if (select.value === '') {
+                            change.Reset.push(key);
+                        } else {
+                            change[key] = select.value === 'true';
+                        }
+                    });
+                    if (changed) {
+                        saves.push(ApiClient.ajax({
+                            type: 'POST',
+                            url: ApiClient.getUrl('TitleCards/Preferences/' + userId),
+                            contentType: 'application/json',
+                            data: JSON.stringify(change)
+                        }));
+                    }
                 });
                 return Promise.all(saves);
             };

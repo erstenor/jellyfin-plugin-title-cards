@@ -11,6 +11,12 @@ public sealed class UserPreference
     /// Gets or sets whether the user sees title cards; null follows the server default.
     /// </summary>
     public bool? ShowTitleCards { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether square and portrait covers are cropped to fill their tiles in the
+    /// user's cards; null follows the server default.
+    /// </summary>
+    public bool? CropToFill { get; set; }
 }
 
 /// <summary>
@@ -49,7 +55,7 @@ public sealed class UserPreferenceStore
         lock (_lock)
         {
             return Preferences.TryGetValue(userId, out var preference)
-                ? new UserPreference { ShowTitleCards = preference.ShowTitleCards }
+                ? new UserPreference { ShowTitleCards = preference.ShowTitleCards, CropToFill = preference.CropToFill }
                 : new UserPreference();
         }
     }
@@ -63,6 +69,14 @@ public sealed class UserPreferenceStore
     public bool ShowsTitleCards(Guid userId, bool serverDefault) => Get(userId).ShowTitleCards ?? serverDefault;
 
     /// <summary>
+    /// Whether a user's cards crop square and portrait covers to fill their tiles.
+    /// </summary>
+    /// <param name="userId">The user.</param>
+    /// <param name="serverDefault">What users who haven't chosen get.</param>
+    /// <returns>True for cropped covers.</returns>
+    public bool CropsToFill(Guid userId, bool serverDefault) => Get(userId).CropToFill ?? serverDefault;
+
+    /// <summary>
     /// Saves a user's choices.
     /// </summary>
     /// <param name="userId">The user.</param>
@@ -71,13 +85,13 @@ public sealed class UserPreferenceStore
     {
         lock (_lock)
         {
-            if (preference.ShowTitleCards is null)
+            if (preference.ShowTitleCards is null && preference.CropToFill is null)
             {
                 Preferences.Remove(userId);
             }
             else
             {
-                Preferences[userId] = new UserPreference { ShowTitleCards = preference.ShowTitleCards };
+                Preferences[userId] = new UserPreference { ShowTitleCards = preference.ShowTitleCards, CropToFill = preference.CropToFill };
             }
 
             var path = _path();

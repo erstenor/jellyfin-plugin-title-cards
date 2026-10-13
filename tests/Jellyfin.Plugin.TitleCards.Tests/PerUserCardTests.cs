@@ -113,13 +113,86 @@ public sealed class PerUserCardTests : IDisposable
         var excludedView = new BaseItemDto { Id = excluded, ImageTags = new Dictionary<ImageType, string> { [ImageType.Primary] = "jellyfin" } };
         var movie = new BaseItemDto { Id = Guid.NewGuid(), ImageTags = new Dictionary<ImageType, string> { [ImageType.Primary] = "movie" } };
 
-        filter.ApplyCards([view, liveTv, excludedView, movie], [excluded]);
+        filter.ApplyCards([view, liveTv, excludedView, movie], [excluded], cropToFill: false);
 
         Assert.StartsWith("tc-card-", view.ImageTags[ImageType.Primary], StringComparison.Ordinal);
         Assert.False(view.ImageBlurHashes.ContainsKey(ImageType.Primary));
         Assert.StartsWith("tc-card-", liveTv.ImageTags![ImageType.Primary], StringComparison.Ordinal); // views without an image of their own get one
         Assert.Equal("jellyfin", excludedView.ImageTags[ImageType.Primary]);
         Assert.Equal("movie", movie.ImageTags[ImageType.Primary]);
+    }
+
+    [Fact]
+    public async Task CropUsersGetTheCroppedCardWhereThereIsOne()
+    {
+        var store = Store();
+        var books = Guid.NewGuid();
+        var movies = Guid.NewGuid();
+        await store.SaveAsync(books, VariantImageStore.Card, [1], CancellationToken.None);
+        await store.SaveAsync(books, VariantImageStore.CroppedCard, [2], CancellationToken.None);
+        await store.SaveAsync(movies, VariantImageStore.Card, [3], CancellationToken.None);
+        var filter = new VariantImageFilter(store, new UserPreferenceStore(() => Path.Combine(_root, "prefs.json")), NullLogger<VariantImageFilter>.Instance);
+        BaseItemDto Dto(Guid id) => new() { Id = id, ImageTags = new Dictionary<ImageType, string> { [ImageType.Primary] = "jellyfin" } };
+
+        var (wholeBooks, wholeMovies) = (Dto(books), Dto(movies));
+        filter.ApplyCards([wholeBooks, wholeMovies], [], cropToFill: false);
+        var (croppedBooks, croppedMovies) = (Dto(books), Dto(movies));
+        filter.ApplyCards([croppedBooks, croppedMovies], [], cropToFill: true);
+
+        Assert.Equal(store.TagFor(books, VariantImageStore.Card), wholeBooks.ImageTags![ImageType.Primary]);
+        Assert.Equal(store.TagFor(books, VariantImageStore.CroppedCard), croppedBooks.ImageTags![ImageType.Primary]);
+        Assert.NotEqual(wholeBooks.ImageTags[ImageType.Primary], croppedBooks.ImageTags[ImageType.Primary]);
+        // Nothing to crop: both get the one card.
+        Assert.Equal(wholeMovies.ImageTags![ImageType.Primary], croppedMovies.ImageTags![ImageType.Primary]);
+    }
+
+    [Fact]
+    public async Task DeletingTheCroppedCardLeavesTheCard()
+    {
+        var store = Store();
+        var view = Guid.NewGuid();
+        await store.SaveAsync(view, VariantImageStore.Card, [1], CancellationToken.None);
+        await store.SaveAsync(view, VariantImageStore.CroppedCard, [2], CancellationToken.None);
+
+        store.Delete(view, VariantImageStore.CroppedCard);
+
+        Assert.Null(store.TagFor(view, VariantImageStore.CroppedCard));
+        Assert.NotNull(store.TagFor(view, VariantImageStore.Card));
+    }
+
+    [Fact]
+    public void PreferenceChangesMergeAndResetReturnsToTheDefault()
+    {
+        var current = new UserPreference { ShowTitleCards = false, CropToFill = true };
+
+        // An update naming one field leaves the other alone (e.g. an older web script).
+        var showOnly = new Jellyfin.Plugin.TitleCards.Api.PreferenceRequest { ShowTitleCards = true }.ApplyTo(current);
+        Assert.Equal((true, true), (showOnly.ShowTitleCards, showOnly.CropToFill));
+
+        var reset = new Jellyfin.Plugin.TitleCards.Api.PreferenceRequest { Reset = ["CropToFill"] }.ApplyTo(current);
+        Assert.Equal((false, (bool?)null), (reset.ShowTitleCards, reset.CropToFill));
+    }
+
+    [Theory]
+    [InlineData(1920, 1080, 480, 270, false)] // backdrop in a quarter tile: cropped either way
+    [InlineData(1000, 1000, 480, 270, true)]  // square album cover
+    [InlineData(600, 900, 480, 270, true)]    // portrait book cover
+    [InlineData(1000, 1000, 480, 540, false)] // square cover in a two-tile half: close enough to crop anyway
+    public void CroppingOnlyChangesCoversFarFromTheTileShape(int width, int height, int tileWidth, int tileHeight, bool changes)
+        => Assert.Equal(changes, Jellyfin.Plugin.TitleCards.Cards.CardRenderer.CropChangesFit((width, height), (tileWidth, tileHeight)));
+
+    [Fact]
+    public void CardsFromBeforeCroppedVersionsAreRebuiltOnce()
+    {
+        var path = Path.Combine(_root, "title-cards-state.json");
+        var old = Guid.NewGuid();
+        Directory.CreateDirectory(_root);
+        File.WriteAllText(path, "{\"" + old + "\": {\"Title\": \"Books\", \"Tiles\": [\"A\"], \"Candidates\": 10, \"Format\": 1}}");
+        var state = new CardStateStore(_root);
+
+        Assert.True(state.NeedsCard(old, hasCard: true));
+        state.Record(new MediaBrowser.Controller.Entities.Folder { Id = old, Name = "Books" }, ["A"], 10);
+        Assert.False(state.NeedsCard(old, hasCard: true));
     }
 
     [Fact]

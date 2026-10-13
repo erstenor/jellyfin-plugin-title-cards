@@ -14,8 +14,14 @@ namespace Jellyfin.Plugin.TitleCards.Variants;
 /// </remarks>
 public sealed class VariantImageStore
 {
-    /// <summary>The title card.</summary>
+    /// <summary>The title card, square and portrait covers shown whole on a blurred copy of themselves.</summary>
     public const string Card = "card";
+
+    /// <summary>
+    /// The title card with square and portrait covers cropped to fill their tiles. Only stored
+    /// when it differs from <see cref="Card"/>.
+    /// </summary>
+    public const string CroppedCard = "cardcrop";
 
     private const string TagPrefix = "tc-";
     private static readonly string[] Extensions = [".png", ".jpg"];
@@ -101,6 +107,21 @@ public sealed class VariantImageStore
         {
             _views?.Add(viewId);
         }
+    }
+
+    /// <summary>
+    /// Deletes one stored variant of a view, if it exists.
+    /// </summary>
+    /// <param name="viewId">The view.</param>
+    /// <param name="variant">The variant name.</param>
+    public void Delete(Guid viewId, string variant)
+    {
+        if (Find(viewId, variant) is { } path)
+        {
+            File.Delete(path);
+        }
+
+        _index[(viewId, variant)] = null;
     }
 
     /// <summary>

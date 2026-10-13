@@ -7,11 +7,12 @@ own artwork, with the library name drawn exactly the way Jellyfin draws it. Ever
 one, including Live TV (for which Jellyfin doesn't automatically generate an image), recordings, grouped
 views and libraries added later. Images containing logos and lettering in the artwork that would obscure the library title are excluded.
 
-Each user chooses whether they see title cards or Jellyfin's own library images, and the choice
-applies in all their apps, including TV apps (tested with Android TV / Fire TV). Jellyfin's own
-images are left untouched and keep refreshing as usual.
+Each user chooses whether they see title cards or Jellyfin's own library images, and whether
+album and book covers are cropped to fill their tiles; the choices apply in all their apps,
+including TV apps (tested with Android TV / Fire TV). Jellyfin's own images are left untouched and
+keep refreshing as usual.
 
-**Status:** 0.2, an early release for Jellyfin 12.2. It runs on one server so far, so
+**Status:** 0.3, an early release for Jellyfin 12.2. It runs on one server so far, so
 [feedback and issues](https://github.com/erstenor/jellyfin-plugin-title-cards/issues) are very
 welcome.
 
@@ -31,15 +32,14 @@ outer corners, clear of it:
 Every library type: Live TV, TV shows, movies, collections, audiobooks, books, music, music
 videos, photos and playlists. The Playlists card is built from what's in the playlists (here
 albums and music videos) rather than Jellyfin's playlist mosaics.
-With **Crop square and portrait art to fill its tile** off (the
-default), covers whose shape is far from their tile's are shown whole on a blurred copy of
-themselves, as on the highlighted Books card:
+With **Crop covers to fill their tiles** off (the default), covers whose shape is far from their
+tile's are shown whole on a blurred copy of themselves, as on the highlighted Books card:
 
 ![Title cards for every library type, with the crop setting off](docs/images/libraries-crop-off.jpg)
 
 With the setting on, covers are cropped to fill their tiles edge to edge, as on the highlighted
-Books card (the artwork differs between the two screenshots because each refresh picks a fresh
-random sample):
+Books card. Each user picks one or the other; the plugin draws both versions of a card from the
+same covers (these two screenshots were taken on different days, so their artwork differs):
 
 ![Title cards for every library type, with the crop setting on](docs/images/libraries-crop-on.jpg)
 
@@ -81,6 +81,9 @@ the latest version from the Catalog (and restart) to switch to a normal, auto-up
 New versions can take a few minutes to appear in the Catalog after a release, while GitHub's
 cache of the repository file refreshes.
 
+**Upgrading:** the first start of 0.3 rebuilds every card once, so cards with square or portrait
+covers also get their cropped version (it takes about as long as a nightly refresh).
+
 **Upgrading from 0.1:** versions before 0.2 saved cards into each library's own image, where
 Jellyfin then stopped refreshing its image. On its first start, 0.2 removes those cards (only
 where the library image is still the card the plugin saved, so images you uploaded since are
@@ -98,8 +101,8 @@ For each view any enabled user sees on the home screen (once each):
 
 1. **Gathers artwork** from a random sample of the library's items. Backdrops and landscape
    images come first; square album art and portrait covers are shown whole on a blurred,
-   darkened copy of themselves, or cropped to fill the tile if you turn on **Crop square and
-   portrait art to fill its tile**. Each library type has its own item types (series, movies,
+   darkened copy of themselves, or cropped to fill the tile for users who turn on **Crop covers
+   to fill their tiles**. Each library type has its own item types (series, movies,
    albums, photos, books...); unknown types use a broad default. Collections take one image per
    collection in turn, and a series only appears once. Playlists use the art behind what's in
    them (a track's artist backdrop and album cover, an episode's series, a movie's own art),
@@ -117,14 +120,18 @@ For each view any enabled user sees on the home screen (once each):
    that contain a Live TV recording folder (e.g. DVR) use their recordings first, topped up from
    what's airing.
 3. **Keeps text clear of the title**: an image is skipped for a tile if text is detected where
-   the title covers that tile (with a 24px margin). Text elsewhere in the image is fine.
+   the title covers that tile (with a 24px margin). Text elsewhere in the image is fine. A cover
+   that is drawn differently when cropped must clear the title both ways, so the two versions of
+   a card show the same covers.
 4. **Lays out** the largest arrangement it can fill: 4 tiles, else 3, 2 or 1. If nothing usable
    clears the title, the library keeps its current card, or Jellyfin's image if it has none.
 5. **Draws** with Jellyfin's own recipe: black layer at alpha 0x78, the library name in the
    server's bold sans-serif at 112px, centered, baseline at half height plus half the x-height
    (see [Fonts](#fonts)).
-6. **Keeps** the card in the plugin's data folder and shows it to the users who see title cards
-   (see [Who sees title cards](#who-sees-title-cards)). The library's own image stays Jellyfin's.
+6. **Keeps** the card in the plugin's data folder, plus a cropped version where cropping changes
+   it, and shows each user the one they chose (see [Who sees title cards](#who-sees-title-cards)).
+   The library's own image stays Jellyfin's. Libraries of backdrops (movies, shows, Live TV) look
+   the same either way and have one card.
 
 ### When cards are built
 
@@ -144,26 +151,30 @@ text detector.
 
 ### Who sees title cards
 
-Each user sees either title cards or Jellyfin's own library images:
+Each user sees either title cards or Jellyfin's own library images, and chooses whether covers in
+their cards are cropped:
 
-- **Users choose for themselves** in the web client under **Settings > Display > Show title
-  cards**. The choice is saved on the server, so it applies in every app they sign in to,
-  including TV apps, which have no setting of their own: set it once in a browser. Tested with
-  the web client and Android TV / Fire TV; other apps get the same server replies, and reports
-  from them are welcome. The setting needs the
+- **Users choose for themselves** in the web client under **Settings > Display**: **Show title
+  cards**, and **Crop covers to fill their tiles** (album, book and audiobook covers fill their
+  tiles edge to edge, losing their top and bottom; off, each cover is shown whole on a blurred
+  copy of itself). The choices are saved on the server, so they apply in every app the user signs
+  in to, including TV apps, which have no settings of their own: set them once in a browser.
+  Tested with the web client and Android TV / Fire TV; other apps get the same server replies,
+  and reports from them are welcome. The settings need the
   [File Transformation](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation)
   plugin to appear in the web client; without it, everything else works the same.
-- **Admins can set it for them** under **Per-user choices** on the plugin's settings page, with
-  or without File Transformation.
-- **Everyone else** follows **Show title cards to users who haven't chosen** (on by default).
+- **Admins can set them for users** under **Per-user choices** on the plugin's settings page,
+  with or without File Transformation.
+- **Everyone else** follows **Show title cards to users who haven't chosen** (on by default) and
+  **Crop covers to fill their tiles for users who haven't chosen** (off by default).
 
-![The Show title cards setting in Settings > Display](docs/images/display-setting.png)
+![The Show title cards and Crop covers settings in Settings > Display](docs/images/display-setting.png)
 
 How it works: a library's own image stays Jellyfin's, generated and refreshed by Jellyfin as
 usual. When the server lists libraries for a user who sees title cards (the home screen's
 library row in every app, and other home-screen plugins that list libraries), the plugin points
-each library at its card instead. A user's choice applies the next time their app loads the home
-screen; an app that has the images cached may need to be restarted.
+each library at its card (or its cropped card) instead. A user's choices apply the next time their
+app loads the home screen; an app that has the images cached may need to be restarted.
 
 Users who turn cards off see exactly what Jellyfin shows without the plugin: one backdrop with
 the library name for most libraries, a strip of posters for Collections and Playlists (whose
@@ -172,23 +183,23 @@ you upload for Live TV under its Edit Images.
 
 ### Settings
 
-Dashboard > Plugins > Title Cards:
+Dashboard > Plugins > Title Cards (also listed under Plugins in the dashboard's side menu):
 
 - **Show title cards to users who haven't chosen** (on)
-- **Per-user choices**: each user with *Server default*, *On* or *Off*, with a summary, a search
-  box and a filter to show only users who have chosen, for servers with many users
+- **Crop covers to fill their tiles for users who haven't chosen** (off). Cropped covers keep
+  their middle: a square cover the middle 56% of its height, a portrait book cover about 37%.
+- **Per-user choices**: each user's *Title cards* and *Crop covers*, each *Server default*, *On*
+  or *Off*, with a summary, a search box and a filter to show only users with their own setting,
+  for servers with many users
 - **Exclude text from behind the title** (on)
 - **Leave sports out of Live TV cards** (on)
-- **Crop square and portrait art to fill its tile** (off). Album, book and audiobook covers fill
-  their tiles edge to edge like backdrops do, at the cost of their top and bottom: a square cover
-  keeps the middle 56% of its height, a portrait book cover about 37%. Off, each cover is shown
-  whole on a blurred copy of itself. Applies from the next refresh.
 - **Build cards as soon as home settings or libraries change** (on)
 
 ![Title Cards settings page](docs/images/settings.png)
 
-Schedules are changed under Scheduled Tasks like any other task. After changing a setting, run
-*Refresh title cards* to redraw existing cards straight away.
+Schedules are changed under Scheduled Tasks like any other task. Users' choices take effect
+straight away, since both versions of each card are already built. After changing the text or
+sports setting, run *Refresh title cards* to redraw existing cards straight away.
 
 ### Fonts
 
@@ -256,7 +267,7 @@ Needs the .NET 10 SDK; packaging also needs Python 3.
 ```sh
 dotnet build Jellyfin.Plugin.TitleCards.sln
 dotnet test Jellyfin.Plugin.TitleCards.sln
-python build/package.py --version 0.2.0.0      # dist/title-cards_0.2.0.0.zip
+python build/package.py --version 0.3.0.0      # dist/title-cards_0.3.0.0.zip
 ```
 
 Releasing: `python build/package.py --version X --changelog "..." --manifest` builds the zip and
