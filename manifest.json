@@ -3,6 +3,14 @@
     "guid": "c99c31b2-247e-4280-85a2-824757735f02",
     "versions": [
       {
+        "version": "0.3.0.0",
+        "changelog": "Each user chooses whether album, book and audiobook covers in their title cards are cropped to fill their tiles (Settings > Display > Crop covers to fill their tiles with File Transformation, or per user on the plugin's settings page); both versions of a card show the same covers. The server-wide crop setting becomes the default for users who haven't chosen. The settings page is listed under Plugins in the dashboard's side menu. The first start rebuilds every card once.",
+        "targetAbi": "12.2.0.0",
+        "sourceUrl": "https://github.com/erstenor/jellyfin-plugin-title-cards/releases/download/v0.3.0.0/title-cards_0.3.0.0.zip",
+        "checksum": "80af496a7b9a7149735312a7aa810a7c",
+        "timestamp": "2026-10-13T19:04:23Z"
+      },
+      {
         "version": "0.2.0.0",
         "changelog": "Each user chooses whether they see title cards or Jellyfin's own library images (Settings > Display > Show title cards with File Transformation, or per user on the plugin's settings page); the choice applies in every app, including TV apps. Library images stay Jellyfin's and keep refreshing; cards saved into them by earlier versions are handed back on first start. New libraries get cards as soon as they're scanned. \"Keep text out from behind the title\" is now \"Exclude text from behind the title\".",
         "targetAbi": "12.2.0.0",
